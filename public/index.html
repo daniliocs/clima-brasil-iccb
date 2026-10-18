@@ -1,0 +1,1917 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+  <title>ICCB Brasil — Conforto Climático e Histórico Meteorológico</title>
+  <meta name="description" content="Plataforma interativa do Índice de Conforto Climático Brasileiro (ICCB v1.0) baseada nas Normais Climatológicas INMET (1991-2020) e Reanálise NASA POWER." />
+  <meta name="theme-color" content="#1f5a6e" />
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="./icons/icon-192.svg" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            display: ['Plus Jakarta Sans', 'Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            iccb: {
+              perfect: '#c85a32',
+              verygood: '#1f5a6e',
+              good: '#678c99',
+              fair: '#b8c8d0',
+              harsh: '#d4c8b8',
+            }
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    :root {
+      color-scheme: light;
+      accent-color: #c85a32;
+      --scrollbar-thumb: #64748b;
+      --scrollbar-track: #f1f5f9;
+    }
+
+    ::selection {
+      background-color: #c85a32;
+      color: #ffffff;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #f8fafc;
+      color: #0f172a;
+    }
+
+    /* Standard Scrollbar Styling (customize-scrollbar-color-and-thickness & browser-ui-theming) */
+    .scroller {
+      scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+      scrollbar-width: thin;
+    }
+
+    @supports not (scrollbar-color: auto) {
+      .scroller::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+      }
+      .scroller::-webkit-scrollbar-thumb {
+        background: var(--scrollbar-thumb);
+        border-radius: 9999px;
+      }
+      .scroller::-webkit-scrollbar-track {
+        background: var(--scrollbar-track);
+      }
+    }
+
+    /* Drag handle chrome only - never apply user-select: none to content text */
+    .sheet-drag-handle {
+      user-select: none;
+      touch-action: none;
+    }
+
+    /* Custom Range Sliders */
+    input[type="range"].iccb-slider {
+      appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 9999px;
+      background: #e2e8f0;
+      outline: none;
+      cursor: pointer;
+    }
+    input[type="range"].iccb-slider::-webkit-slider-thumb {
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #c85a32;
+      border: 2px solid #ffffff;
+      box-shadow: 0 1px 4px rgba(15, 23, 42, 0.35);
+      transition: transform 0.15s ease, background-color 0.15s ease;
+    }
+    input[type="range"].iccb-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.12);
+      background: #b04822;
+    }
+    input[type="range"].iccb-slider::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #c85a32;
+      border: 2px solid #ffffff;
+      box-shadow: 0 1px 4px rgba(15, 23, 42, 0.35);
+      transition: transform 0.15s ease, background-color 0.15s ease;
+    }
+
+    /* Leaflet custom markers & tooltips */
+    .leaflet-container {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: #e2e8f0;
+    }
+    .iccb-marker-pin {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 9999px;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      font-size: 11px;
+      border: 2px solid rgba(255, 255, 255, 0.95);
+      box-shadow: 0 3px 10px rgba(15, 23, 42, 0.28);
+      transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.18s ease;
+    }
+    .iccb-marker-pin:hover,
+    .iccb-marker-pin.is-selected {
+      transform: scale(1.22);
+      z-index: 900 !important;
+      box-shadow: 0 0 0 4px rgba(200, 90, 50, 0.35), 0 6px 16px rgba(15, 23, 42, 0.38);
+    }
+
+    /* Mobile Bottom Sheet transition */
+    #mobileBottomSheet {
+      transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+  </style>
+</head>
+<body class="relative w-screen h-screen select-text antialiased">
+
+  <!-- MAP CONTAINER (100vw x 100vh) -->
+  <div id="map" class="fixed inset-0 z-0 w-full h-full"></div>
+
+  <!-- =========================================================================
+       MOBILE TOP FLOATING BAR (< 1024px)
+  ========================================================================== -->
+  <header class="lg:hidden fixed top-3 inset-x-3 z-20 flex flex-col gap-2 pointer-events-none">
+    <div class="pointer-events-auto flex items-center gap-2 bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-lg rounded-2xl px-3 py-2">
+      <div class="flex items-center gap-1.5 pr-1 border-r border-slate-200">
+        <span class="w-3 h-3 rounded-full bg-[#c85a32] inline-block"></span>
+        <span class="font-display font-bold text-xs tracking-tight text-slate-900">ICCB</span>
+      </div>
+      <input
+        id="mobileSearchInput"
+        type="search"
+        placeholder="Buscar cidade ou UF..."
+        class="flex-1 min-w-0 bg-transparent text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none"
+      />
+      <button
+        type="button"
+        id="btnOpenMobileSliders"
+        class="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1 shrink-0"
+        title="Personalizar Pesos e Limites"
+      >
+        <svg class="w-3.5 h-3.5 text-[#c85a32]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+        <span>Clima Ideal</span>
+      </button>
+      <button
+        type="button"
+        id="btnOpenCompareMobile"
+        class="px-2.5 py-1.5 rounded-xl bg-[#1f5a6e] text-white text-xs font-semibold shrink-0"
+      >
+        A vs B
+      </button>
+    </div>
+
+    <!-- Mobile Layer & NASA Power Quick Bar -->
+    <div class="pointer-events-auto flex items-center justify-between gap-2">
+      <select
+        id="mobileLayerSelect"
+        aria-label="Selecionar camada do mapa"
+        class="bg-white/95 backdrop-blur-md border border-slate-200 shadow-md rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none"
+      >
+        <option value="iccb">Camada: Nota Geral (ICCB)</option>
+        <option value="hi">Camada: Heat Index Máximo (°C)</option>
+        <option value="ur_min">Camada: Umidade Mínima Mensal (%)</option>
+        <option value="chuva">Camada: Chuva Anual (mm)</option>
+        <option value="altitude">Camada: Altitude (m)</option>
+      </select>
+
+      <button
+        type="button"
+        id="btnOpenNasaModalMobile"
+        class="bg-white/95 backdrop-blur-md border border-slate-200 shadow-md rounded-xl px-3 py-1.5 text-xs font-semibold text-[#1f5a6e] flex items-center gap-1"
+      >
+        <span>+ Município (NASA)</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- =========================================================================
+       DESKTOP TOP FLOATING CONTROLS (Layer Switcher + Compare + NASA POWER + Legend)
+  ========================================================================== -->
+  <div class="hidden lg:flex fixed top-4 left-[404px] z-20 items-center gap-2.5 pointer-events-none">
+    <div class="pointer-events-auto flex items-center gap-1 bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-md rounded-xl p-1">
+      <button type="button" data-layer="iccb" class="layer-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1f5a6e] text-white transition">Nota ICCB</button>
+      <button type="button" data-layer="hi" class="layer-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition">Heat Index</button>
+      <button type="button" data-layer="ur_min" class="layer-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition">Umidade Mín.</button>
+      <button type="button" data-layer="chuva" class="layer-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition">Chuva Anual</button>
+      <button type="button" data-layer="altitude" class="layer-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition">Altitude</button>
+    </div>
+
+    <button
+      type="button"
+      id="btnTogglePlanaltoPolygon"
+      class="pointer-events-auto px-3 py-2 rounded-xl bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-md text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 transition"
+      title="Destacar polígono de altitude do Planalto Atlântico / Espinhaço"
+    >
+      <span class="w-2.5 h-2.5 rounded-sm bg-[#c85a32]/40 border border-[#c85a32] inline-block"></span>
+      <span>Polígono Planalto Atlântico</span>
+    </button>
+
+    <button
+      type="button"
+      id="btnOpenCompareDesktop"
+      class="pointer-events-auto px-3.5 py-2 rounded-xl bg-[#c85a32] hover:bg-[#b04822] text-white shadow-md text-xs font-semibold flex items-center gap-1.5 transition"
+    >
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+      <span>Comparar Cidade A vs. B</span>
+    </button>
+
+    <button
+      type="button"
+      id="btnOpenNasaModalDesktop"
+      class="pointer-events-auto px-3.5 py-2 rounded-xl bg-white/95 backdrop-blur-md border border-slate-200/90 hover:bg-slate-50 text-[#1f5a6e] shadow-md text-xs font-semibold flex items-center gap-1.5 transition"
+    >
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+      <span>Consultar 5.570 Municípios (NASA POWER)</span>
+    </button>
+  </div>
+
+  <!-- FLOATING LEGEND (Bottom Left on Desktop) -->
+  <div class="hidden lg:block fixed bottom-5 left-[404px] z-20 bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-md rounded-2xl p-3 pointer-events-auto">
+    <div id="legendTitle" class="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">Faixas do Índice ICCB (0–100)</div>
+    <div id="legendItems" class="flex items-center gap-3 text-xs font-medium text-slate-700">
+      <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#c85a32]"></i> 82–100 Quase Perfeito</span>
+      <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#1f5a6e]"></i> 74–81,9 Muito Bom</span>
+      <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#678c99]"></i> 64–73,9 Bom</span>
+      <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#b8c8d0]"></i> 52–63,9 Regular</span>
+      <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#d4c8b8]"></i> &lt;52 Severo</span>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       DESKTOP LEFT SIDEBAR (380px fixed with internal scroll)
+  ========================================================================== -->
+  <aside
+    id="desktopLeftSidebar"
+    class="hidden lg:flex fixed top-4 bottom-4 left-4 w-[380px] z-20 bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-xl rounded-2xl flex-col overflow-hidden"
+  >
+    <!-- Header -->
+    <div class="p-4 border-b border-slate-200/80 bg-gradient-to-br from-[#1f5a6e] to-[#133b4a] text-white">
+      <div class="flex items-center justify-between">
+        <span class="px-2 py-0.5 rounded-md bg-white/15 text-[10px] font-mono uppercase tracking-wider">INMET 1991–2020 + NASA POWER</span>
+        <span id="calcLatencyBadge" class="text-[10px] font-mono text-emerald-300">ICCB v1.0 • 0.4ms</span>
+      </div>
+      <h1 class="font-display font-bold text-lg leading-snug mt-1.5">Conforto Climático do Brasil</h1>
+      <p class="text-xs text-slate-200 mt-0.5">Avaliação mensal de Temperatura, Heat Index (NOAA), Umidade Relativa, Chuva e Insolação.</p>
+    </div>
+
+    <!-- Search & Region Filter -->
+    <div class="p-3 border-b border-slate-200/80 bg-slate-50/70 space-y-2">
+      <div class="relative">
+        <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        <input
+          id="desktopSearchInput"
+          type="search"
+          placeholder="Buscar cidade, UF ou estação (ex: Diamantina, DF)..."
+          class="w-full pl-9 pr-3 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#1f5a6e] text-slate-800 placeholder:text-slate-400"
+        />
+      </div>
+      <div class="flex items-center gap-1 overflow-x-auto scroller pb-0.5" id="regionFilterBar">
+        <button type="button" data-region="ALL" class="region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-[#1f5a6e] text-white shrink-0">Todas</button>
+        <button type="button" data-region="ALTITUDE" class="region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 shrink-0">Altitude &ge;800m</button>
+        <button type="button" data-region="Sudeste" class="region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 shrink-0">Sudeste</button>
+        <button type="button" data-region="Sul" class="region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 shrink-0">Sul</button>
+        <button type="button" data-region="Centro-Oeste" class="region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 shrink-0">C.-Oeste</button>
+        <button type="button" data-region="Nordeste" class="region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 shrink-0">Nordeste</button>
+        <button type="button" data-region="Norte" class="region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 shrink-0">Norte</button>
+      </div>
+    </div>
+
+    <!-- Scrollable Area: Sliders Accordion + Ranking List -->
+    <div class="flex-1 overflow-y-auto scroller divide-y divide-slate-200/80">
+      <!-- Interactive Sliders ("Personalize seu Clima Ideal") -->
+      <details id="desktopSlidersAccordion" class="group bg-amber-50/40">
+        <summary class="cursor-pointer list-none px-4 py-2.5 flex items-center justify-between text-xs font-bold text-slate-800 hover:bg-amber-50/80 transition">
+          <span class="flex items-center gap-1.5">
+            <svg class="w-4 h-4 text-[#c85a32]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+            <span>Personalize seu Clima Ideal (Tempo Real)</span>
+          </span>
+          <span class="text-[11px] font-mono text-[#c85a32] group-open:rotate-180 transition-transform">&#9662;</span>
+        </summary>
+
+        <div id="slidersMountDesktop" class="px-4 pb-3.5 pt-1 space-y-3 border-t border-amber-200/60">
+          <!-- Sliders injected/synced via JS -->
+        </div>
+      </details>
+
+      <!-- Ranking Header -->
+      <div class="px-4 py-2 bg-slate-100/80 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-500 sticky top-0 z-10 backdrop-blur-sm">
+        <span id="rankingCountLabel">Ranking das Cidades (46)</span>
+        <span>Nota ICCB</span>
+      </div>
+
+      <!-- Ranking List -->
+      <div id="desktopRankingList" class="divide-y divide-slate-100"></div>
+    </div>
+  </aside>
+
+  <!-- =========================================================================
+       DESKTOP RIGHT RETRACTABLE PANEL (450px)
+  ========================================================================== -->
+  <aside
+    id="desktopRightPanel"
+    class="hidden lg:flex fixed top-[68px] bottom-4 right-4 w-[450px] z-20 bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-2xl rounded-2xl flex-col overflow-hidden transition-transform duration-300 translate-x-0"
+  >
+    <!-- Station Header -->
+    <div class="p-4 border-b border-slate-200/80 flex items-start justify-between gap-3 bg-slate-50/80">
+      <div>
+        <div class="flex items-center gap-2">
+          <span id="detailRankBadge" class="px-2 py-0.5 rounded-md bg-slate-900 text-white font-mono text-xs font-bold">#01</span>
+          <span id="detailClassBadge" class="px-2.5 py-0.5 rounded-full text-xs font-bold text-white bg-[#c85a32]">Quase Perfeito</span>
+          <span id="detailCodeBadge" class="text-[11px] font-mono text-slate-400">INMET 83536</span>
+        </div>
+        <h2 id="detailCityTitle" class="font-display font-extrabold text-xl text-slate-900 mt-1">Diamantina - MG</h2>
+        <p id="detailSubMeta" class="text-xs text-slate-500 mt-0.5">Região Sudeste • Altitude: 1.296 m • Lat -18.25°, Lon -43.60°</p>
+      </div>
+      <div class="flex flex-col items-end shrink-0">
+        <div id="detailScoreBig" class="font-mono font-extrabold text-3xl text-[#c85a32] leading-none">93.9</div>
+        <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mt-1">ICCB Anual</span>
+      </div>
+    </div>
+
+    <!-- Scrollable Station Content -->
+    <div id="stationDetailBodyDesktop" class="flex-1 overflow-y-auto scroller p-4 space-y-4">
+      <!-- Populated dynamically via renderStationDetails() -->
+    </div>
+
+    <!-- Footer Actions -->
+    <div class="p-3 border-t border-slate-200/80 bg-slate-50 flex items-center justify-between gap-2">
+      <button
+        type="button"
+        id="btnCompareFromDetail"
+        class="flex-1 py-2 px-3 rounded-xl bg-[#1f5a6e] hover:bg-[#164454] text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition"
+      >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+        <span>Comparar com outra cidade</span>
+      </button>
+      <button
+        type="button"
+        id="btnCloseRightPanel"
+        class="py-2 px-3 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600 text-xs font-semibold transition"
+        title="Recolher painel"
+      >
+        Ocultar
+      </button>
+    </div>
+  </aside>
+
+  <!-- Button to reopen right panel when collapsed on Desktop (Positioned below top bar at top-[68px] right-4) -->
+  <button
+    type="button"
+    id="btnReopenRightPanel"
+    class="hidden fixed top-[68px] right-4 z-20 px-4 py-2.5 rounded-xl bg-slate-900 text-white shadow-xl text-xs font-semibold items-center gap-2 hover:bg-slate-800 transition"
+  >
+    <svg class="w-4 h-4 text-[#c85a32]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+    <span>Abrir Detalhes da Estação</span>
+  </button>
+
+  <!-- =========================================================================
+       MOBILE SLIDING BOTTOM SHEET (< 1024px)
+  ========================================================================== -->
+  <section
+    id="mobileBottomSheet"
+    class="lg:hidden fixed inset-x-0 bottom-0 z-30 h-[85vh] bg-white rounded-t-3xl shadow-2xl border-t border-slate-200 flex flex-col translate-y-[68vh]"
+  >
+    <!-- Drag Handle Chrome -->
+    <div id="mobileSheetHandle" class="sheet-drag-handle pt-2.5 pb-2 px-4 cursor-pointer border-b border-slate-100 flex flex-col items-center">
+      <div class="w-12 h-1.5 rounded-full bg-slate-300 mb-2"></div>
+      <div class="w-full flex items-center justify-between">
+        <div class="flex items-center gap-2 min-w-0">
+          <span id="mobileSheetRank" class="px-2 py-0.5 rounded bg-slate-900 text-white font-mono text-xs font-bold">#01</span>
+          <div class="truncate">
+            <div id="mobileSheetCity" class="font-display font-bold text-base text-slate-900 truncate">Diamantina - MG</div>
+            <div id="mobileSheetMeta" class="text-[11px] text-slate-500">Toque para expandir gráficos e ranking</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <span id="mobileSheetScore" class="font-mono font-extrabold text-2xl text-[#c85a32]">93.9</span>
+          <button
+            type="button"
+            id="btnToggleMobileSheet"
+            class="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-semibold"
+          >
+            Expandir
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile Tabs inside Expanded Bottom Sheet -->
+    <div class="flex border-b border-slate-200 bg-slate-50 px-4 pt-1 gap-2">
+      <button type="button" data-mobtab="details" class="mob-tab-btn py-2 px-3 text-xs font-bold border-b-2 border-[#c85a32] text-[#c85a32]">Análise & Gráficos</button>
+      <button type="button" data-mobtab="ranking" class="mob-tab-btn py-2 px-3 text-xs font-bold border-b-2 border-transparent text-slate-500">Ranking Completo</button>
+    </div>
+
+    <div class="flex-1 overflow-y-auto scroller p-4">
+      <div id="mobileTabDetails" class="space-y-4"></div>
+      <div id="mobileTabRanking" class="hidden divide-y divide-slate-100"></div>
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       MODAL 1: MOBILE SLIDERS ("PERSONALIZE SEU CLIMA IDEAL")
+  ========================================================================== -->
+  <div id="mobileSlidersModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full max-h-[88vh] flex flex-col shadow-2xl overflow-hidden">
+      <div class="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+        <h3 class="font-display font-bold text-sm text-slate-900">Personalize seu Clima Ideal (ICCB)</h3>
+        <button type="button" id="btnCloseMobileSliders" class="px-2.5 py-1 rounded-lg bg-slate-200 text-slate-700 text-xs font-semibold">Fechar</button>
+      </div>
+      <div id="slidersMountMobile" class="p-4 overflow-y-auto scroller space-y-3"></div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL 2: COMPARADOR CIDADE A vs. CIDADE B
+  ========================================================================== -->
+  <div id="compareModal" class="hidden fixed inset-0 z-50 bg-slate-900/65 backdrop-blur-xs flex items-center justify-center p-3 lg:p-6">
+    <div class="bg-white rounded-3xl max-w-5xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
+      <!-- Modal Header -->
+      <div class="px-5 py-4 border-b border-slate-200 bg-slate-900 text-white flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <span class="text-[10px] font-mono uppercase tracking-wider text-amber-300">Comparador Bioclimático Lado a Lado</span>
+          <h3 class="font-display font-bold text-lg">Cidade A vs. Cidade B — Qualidade de Vida Climática</h3>
+        </div>
+        <div class="flex items-center gap-2">
+          <!-- Presets from Blueprint -->
+          <button type="button" data-preset="83377,83536" class="preset-compare-btn px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-medium">Brasília vs. Diamantina</button>
+          <button type="button" data-preset="83781,83842" class="preset-compare-btn px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-medium">São Paulo vs. Curitiba</button>
+          <button type="button" data-preset="83743,A610" class="preset-compare-btn px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-medium">Rio vs. Petrópolis</button>
+          <button type="button" id="btnCloseCompareModal" class="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-xs font-bold">Fechar ✕</button>
+        </div>
+      </div>
+
+      <!-- Selectors Bar -->
+      <div class="p-4 bg-slate-50 border-b border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div class="flex items-center gap-2 bg-white p-2.5 rounded-xl border-2 border-[#c85a32]">
+          <span class="w-3.5 h-3.5 rounded-full bg-[#c85a32] shrink-0"></span>
+          <label for="compareSelectA" class="text-xs font-bold text-slate-500 shrink-0">Cidade A:</label>
+          <select id="compareSelectA" class="flex-1 text-sm font-bold text-slate-900 bg-transparent focus:outline-none"></select>
+        </div>
+        <div class="flex items-center gap-2 bg-white p-2.5 rounded-xl border-2 border-[#1f5a6e]">
+          <span class="w-3.5 h-3.5 rounded-full bg-[#1f5a6e] shrink-0"></span>
+          <label for="compareSelectB" class="text-xs font-bold text-slate-500 shrink-0">Cidade B:</label>
+          <select id="compareSelectB" class="flex-1 text-sm font-bold text-slate-900 bg-transparent focus:outline-none"></select>
+        </div>
+      </div>
+
+      <!-- Comparison Content -->
+      <div class="flex-1 overflow-y-auto scroller p-5 space-y-5">
+        <!-- Head-to-head KPIs -->
+        <div id="compareSummaryCards" class="grid grid-cols-1 md:grid-cols-3 gap-3"></div>
+
+        <!-- Charts Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4">
+            <h4 class="font-display font-bold text-xs uppercase tracking-wider text-slate-600 mb-2">Nota Mensal de Conforto (ICCB 0–100)</h4>
+            <div class="h-56"><canvas id="compareChartScore"></canvas></div>
+          </div>
+          <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4">
+            <h4 class="font-display font-bold text-xs uppercase tracking-wider text-slate-600 mb-2">Sensação Térmica (Heat Index °C) &amp; Mínimas</h4>
+            <div class="h-56"><canvas id="compareChartTemp"></canvas></div>
+          </div>
+          <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4">
+            <h4 class="font-display font-bold text-xs uppercase tracking-wider text-slate-600 mb-2">Umidade Relativa Mensal (%) — Faixa Ideal 55%–76%</h4>
+            <div class="h-56"><canvas id="compareChartHumidity"></canvas></div>
+          </div>
+          <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4">
+            <h4 class="font-display font-bold text-xs uppercase tracking-wider text-slate-600 mb-2">Precipitação Mensal (mm)</h4>
+            <div class="h-56"><canvas id="compareChartRain"></canvas></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL 3: BUSCADOR NASA POWER API (QUALQUER MUNICÍPIO DO BRASIL)
+  ========================================================================== -->
+  <div id="nasaModal" class="hidden fixed inset-0 z-50 bg-slate-900/65 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden">
+      <div class="px-5 py-4 bg-[#1f5a6e] text-white flex items-center justify-between">
+        <div>
+          <span class="text-[10px] font-mono uppercase tracking-wider text-sky-200">Cobertura 100% dos 5.570 Municípios</span>
+          <h3 class="font-display font-bold text-base">Importar Município via NASA POWER API</h3>
+        </div>
+        <button type="button" id="btnCloseNasaModal" class="px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 text-xs font-bold">✕</button>
+      </div>
+
+      <div class="p-5 space-y-4">
+        <p class="text-xs text-slate-600 leading-relaxed">
+          Para municípios sem estação física do INMET, consulte em tempo real a grade de satélite/reanálise da <strong>NASA POWER Climatology</strong> informando o nome da cidade ou suas coordenadas.
+        </p>
+
+        <!-- Search city coordinates automatically via Nominatim/IBGE -->
+        <div class="space-y-1.5">
+          <label for="nasaCitySearch" class="block text-xs font-bold text-slate-700">1. Buscar Município Brasileiro (Geocodificação Automática)</label>
+          <div class="flex gap-2">
+            <input
+              id="nasaCitySearch"
+              type="text"
+              placeholder="Ex: Monte Verde, MG ou Lençóis, BA"
+              class="flex-1 px-3 py-2 text-xs border border-slate-300 rounded-xl focus:outline-none focus:border-[#1f5a6e]"
+            />
+            <button
+              type="button"
+              id="btnGeocodeCity"
+              class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold shrink-0"
+            >
+              Localizar Coord.
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label for="nasaInputNome" class="block text-[11px] font-bold text-slate-600 mb-1">Município</label>
+            <input id="nasaInputNome" type="text" value="Monte Verde (Camanducaia)" class="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg" />
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label for="nasaInputUF" class="block text-[11px] font-bold text-slate-600 mb-1">UF</label>
+              <input id="nasaInputUF" type="text" value="MG" maxlength="2" class="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg uppercase" />
+            </div>
+            <div>
+              <label for="nasaInputAlt" class="block text-[11px] font-bold text-slate-600 mb-1">Alt. (m)</label>
+              <input id="nasaInputAlt" type="number" value="1555" class="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg" />
+            </div>
+          </div>
+          <div>
+            <label for="nasaInputLat" class="block text-[11px] font-bold text-slate-600 mb-1">Latitude</label>
+            <input id="nasaInputLat" type="number" step="0.0001" value="-22.8628" class="w-full px-3 py-1.5 text-xs font-mono border border-slate-300 rounded-lg" />
+          </div>
+          <div>
+            <label for="nasaInputLon" class="block text-[11px] font-bold text-slate-600 mb-1">Longitude</label>
+            <input id="nasaInputLon" type="number" step="0.0001" value="-46.0364" class="w-full px-3 py-1.5 text-xs font-mono border border-slate-300 rounded-lg" />
+          </div>
+        </div>
+
+        <div id="nasaStatusMsg" class="text-xs font-medium text-slate-500 hidden"></div>
+
+        <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
+          <button
+            type="button"
+            id="btnFetchNasaLive"
+            class="w-full py-2.5 px-4 rounded-xl bg-[#c85a32] hover:bg-[#b04822] text-white text-xs font-bold shadow-md transition"
+          >
+            Consultar Satélite NASA POWER &amp; Adicionar ao Mapa
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts: Fallback Data + Leaflet + Chart.js -->
+  <script src="./data/estacoes_clima_brasil.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+  <script>
+    // =========================================================================
+    // 1. ESTADO GLOBAL E PARÂMETROS BIOCLIMÁTICOS (ICCB v1.0)
+    // =========================================================================
+    const MESES_ORDEM = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+
+    const DEFAULT_PARAMS = {
+      hiMaxLimit: 27.5,     // Limite de Calor Diurno / Heat Index (°C)
+      tmaxMinLimit: 19.0,   // Limite de Frio Diurno (°C)
+      tminLowLimit: 11.0,   // Limite de Frio Noturno (°C)
+      tminHighLimit: 20.5,  // Limite de Noite Tropical Abafada (°C)
+      urMinLimit: 55.0,     // Umidade Relativa Mínima Aceitável (%)
+      urMaxLimit: 76.0,     // Umidade Relativa Máxima sem Abafamento (%)
+      rainMaxLimit: 170.0,  // Teto de Chuva Mensal Confortável (mm)
+      rainMinLimit: 20.0,   // Piso de Seca Mensal (mm)
+      weightTemp: 1.0,      // Multiplicador de peso Térmico
+      weightUr: 1.0,        // Multiplicador de peso de Umidade
+      weightRain: 1.0       // Multiplicador de peso de Chuva
+    };
+
+    let userParams = { ...DEFAULT_PARAMS };
+    let allFeatures = [];
+    let selectedStationId = "83536"; // Diamantina-MG ou #1 por padrão
+    let currentMapLayer = "iccb";
+    let currentRegionFilter = "ALL";
+    let searchQuery = "";
+    let showPlanaltoPolygon = true;
+
+    // Instâncias Leaflet e Chart.js
+    let mapInstance = null;
+    let markersLayerGroup = null;
+    let planaltoPolygonLayer = null;
+    let markerById = {};
+
+    let chartMainDesktop = null;
+    let chartUrDesktop = null;
+    let chartMainMobile = null;
+    let chartUrMobile = null;
+
+    let compareCharts = {
+      score: null,
+      temp: null,
+      ur: null,
+      rain: null
+    };
+
+    // =========================================================================
+    // 2. MOTOR MATEMÁTICO BIOCLIMÁTICO NO NAVEGADOR (< 5ms)
+    // =========================================================================
+    function calcularIndiceCalor(tempC, urPct) {
+      if (tempC < 25.0 || urPct < 40.0) {
+        return Math.round(tempC * 10) / 10;
+      }
+      const T = (tempC * 9.0 / 5.0) + 32.0;
+      const R = urPct;
+      const hiF =
+        -42.379 +
+        2.04901523 * T +
+        10.14333127 * R -
+        0.22475541 * T * R -
+        0.00683783 * (T * T) -
+        0.05481717 * (R * R) +
+        0.00122874 * (T * T) * R +
+        0.00085282 * T * (R * R) -
+        0.00000199 * (T * T) * (R * R);
+      const hiC = (hiF - 32.0) * 5.0 / 9.0;
+      return Math.round(Math.max(tempC, hiC) * 10) / 10;
+    }
+
+    function avaliarMes(tmax, tmin, ur, chuva, p = userParams) {
+      let penTemp = 0.0;
+      let penUr = 0.0;
+      let penChuva = 0.0;
+
+      const hiTmax = calcularIndiceCalor(tmax, ur);
+
+      // 1. Penalidade Térmica Diurna e Noturna
+      if (hiTmax > p.hiMaxLimit) {
+        penTemp += Math.pow(hiTmax - p.hiMaxLimit, 1.35) * 3.2;
+      } else if (tmax < p.tmaxMinLimit) {
+        penTemp += Math.pow(p.tmaxMinLimit - tmax, 1.20) * 2.0;
+      }
+
+      if (tmin < p.tminLowLimit) {
+        penTemp += Math.pow(p.tminLowLimit - tmin, 1.25) * 2.2;
+      } else if (tmin > p.tminHighLimit) {
+        penTemp += Math.pow(tmin - p.tminHighLimit, 1.30) * 3.0;
+      }
+
+      // 2. Penalidade por Umidade Relativa Extrema
+      if (ur < p.urMinLimit) {
+        penUr += Math.pow(p.urMinLimit - ur, 1.45) * 1.6;
+      } else if (ur > p.urMaxLimit) {
+        const fator = tmax > 26.0 ? 1.5 : 0.9;
+        penUr += Math.pow(ur - p.urMaxLimit, 1.25) * fator;
+      }
+
+      // 3. Penalidade por Regime de Chuvas
+      if (chuva > p.rainMaxLimit) {
+        penChuva += Math.pow((chuva - p.rainMaxLimit) / 25.0, 1.20) * 3.5;
+      } else if (chuva < p.rainMinLimit) {
+        penChuva += Math.pow((p.rainMinLimit - chuva) / 5.0, 1.20) * 2.5;
+      }
+
+      penTemp *= p.weightTemp;
+      penUr *= p.weightUr;
+      penChuva *= p.weightRain;
+
+      const totalPen = penTemp + penUr + penChuva;
+      const notaMes = Math.max(0.0, Math.min(100.0, 100.0 - totalPen));
+
+      return {
+        nota_mes: Math.round(notaMes * 10) / 10,
+        indice_calor_max: hiTmax,
+        pen_temp: Math.round(penTemp * 10) / 10,
+        pen_ur: Math.round(penUr * 10) / 10,
+        pen_chuva: Math.round(penChuva * 10) / 10
+      };
+    }
+
+    function classificarNota(nota) {
+      if (nota >= 82.0) return "Quase Perfeito";
+      if (nota >= 74.0) return "Muito Bom";
+      if (nota >= 64.0) return "Bom";
+      if (nota >= 52.0) return "Regular";
+      return "Severo / Extremo";
+    }
+
+    function corPorNota(nota) {
+      if (nota >= 82.0) return { bg: "#c85a32", text: "#ffffff" };
+      if (nota >= 74.0) return { bg: "#1f5a6e", text: "#ffffff" };
+      if (nota >= 64.0) return { bg: "#678c99", text: "#ffffff" };
+      if (nota >= 52.0) return { bg: "#b8c8d0", text: "#0f172a" };
+      return { bg: "#d4c8b8", text: "#0f172a" };
+    }
+
+    function corPorCamada(feat, layer) {
+      const prop = feat.properties;
+      const res = prop.resumo_anual;
+      if (layer === "iccb") {
+        return {
+          ...corPorNota(prop.nota_conforto_anual),
+          label: prop.nota_conforto_anual.toFixed(1)
+        };
+      }
+      if (layer === "hi") {
+        const hi = Math.max(...prop.series_mensais.indice_calor);
+        let bg = "#1f5a6e", text = "#ffffff";
+        if (hi >= 36) { bg = "#991b1b"; }
+        else if (hi >= 32) { bg = "#c85a32"; }
+        else if (hi >= 28) { bg = "#d97706"; }
+        else if (hi >= 25) { bg = "#678c99"; }
+        return { bg, text, label: `${hi.toFixed(0)}°` };
+      }
+      if (layer === "ur_min") {
+        const urMin = res.ur_minima_mensal;
+        let bg = "#1f5a6e", text = "#ffffff";
+        if (urMin < 48) { bg = "#b91c1c"; }
+        else if (urMin < 55) { bg = "#d97706"; }
+        else if (urMin <= 76) { bg = "#1f5a6e"; }
+        else { bg = "#678c99"; }
+        return { bg, text, label: `${urMin.toFixed(0)}%` };
+      }
+      if (layer === "chuva") {
+        const chuva = res.chuva_acumulada_anual_mm;
+        let bg = "#1f5a6e", text = "#ffffff";
+        if (chuva > 2200) { bg = "#1e3a8a"; }
+        else if (chuva >= 1200) { bg = "#1f5a6e"; }
+        else if (chuva >= 800) { bg = "#678c99"; }
+        else { bg = "#c85a32"; }
+        return { bg, text, label: `${Math.round(chuva / 100) / 10}k` };
+      }
+      if (layer === "altitude") {
+        const alt = prop.altitude_m;
+        let bg = "#678c99", text = "#ffffff";
+        if (alt >= 1000) { bg = "#c85a32"; }
+        else if (alt >= 750) { bg = "#1f5a6e"; }
+        else if (alt >= 400) { bg = "#678c99"; }
+        else { bg = "#b8c8d0"; text = "#0f172a"; }
+        return { bg, text, label: `${alt}m` };
+      }
+      return { ...corPorNota(prop.nota_conforto_anual), label: prop.nota_conforto_anual.toFixed(1) };
+    }
+
+    function recalcularTodasEstacoes() {
+      const t0 = performance.now();
+
+      for (const feat of allFeatures) {
+        const s = feat.properties.series_mensais;
+        const notas = [];
+        const hiList = [];
+        const penT = [];
+        const penU = [];
+        const penC = [];
+
+        for (let m = 0; m < 12; m++) {
+          const av = avaliarMes(s.tmax[m], s.tmin[m], s.ur[m], s.chuva_mm[m], userParams);
+          notas.push(av.nota_mes);
+          hiList.push(av.indice_calor_max);
+          penT.push(av.pen_temp);
+          penU.push(av.pen_ur);
+          penC.push(av.pen_chuva);
+        }
+
+        const mediaAnual = Math.round((notas.reduce((a, b) => a + b, 0) / 12.0) * 10) / 10;
+        let bestIdx = 0, worstIdx = 0;
+        for (let i = 1; i < 12; i++) {
+          if (notas[i] > notas[bestIdx]) bestIdx = i;
+          if (notas[i] < notas[worstIdx]) worstIdx = i;
+        }
+
+        feat.properties.nota_conforto_anual = mediaAnual;
+        feat.properties.classificacao = classificarNota(mediaAnual);
+        s.nota_mensal = notas;
+        s.indice_calor = hiList;
+        s.pen_temp_mensal = penT;
+        s.pen_ur_mensal = penU;
+        s.pen_chuva_mensal = penC;
+
+        const r = feat.properties.resumo_anual;
+        r.melhor_mes = `${MESES_ORDEM[bestIdx]} (${notas[bestIdx].toFixed(1)})`;
+        r.pior_mes = `${MESES_ORDEM[worstIdx]} (${notas[worstIdx].toFixed(1)})`;
+        r.penalidades_medias = {
+          temperatura: Math.round((penT.reduce((a, b) => a + b, 0) / 12.0) * 10) / 10,
+          umidade: Math.round((penU.reduce((a, b) => a + b, 0) / 12.0) * 10) / 10,
+          chuva: Math.round((penC.reduce((a, b) => a + b, 0) / 12.0) * 10) / 10
+        };
+      }
+
+      allFeatures.sort((a, b) => b.properties.nota_conforto_anual - a.properties.nota_conforto_anual);
+      allFeatures.forEach((f, idx) => {
+        f.properties.ranking = idx + 1;
+      });
+
+      const dt = (performance.now() - t0).toFixed(2);
+      const badge = document.getElementById("calcLatencyBadge");
+      if (badge) badge.textContent = `ICCB v1.0 • ${dt}ms`;
+    }
+
+    // =========================================================================
+    // 3. MAPA INTERATIVO LEAFLET E POLÍGONO DO PLANALTO ATLÂNTICO
+    // =========================================================================
+    function inicializarMapa() {
+      mapInstance = L.map("map", {
+        center: [-15.8, -47.9],
+        zoom: 5,
+        zoomControl: false,
+        preferCanvas: true
+      });
+
+      L.control.zoom({ position: "bottomright" }).addTo(mapInstance);
+
+      // Camadas de mapa 100% gratuitas que NÃO exigem API Key e NÃO dão bloqueio 403 (funcionam em file:// e online)
+      const googlePadrao = L.tileLayer(
+        "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=pt-BR",
+        {
+          attribution: "Dados do mapa &copy; Google | INMET 1991–2020",
+          maxZoom: 20
+        }
+      );
+
+      const googleTerreno = L.tileLayer(
+        "https://mt1.google.com/vt/lyrs=p&x={x}&y={y}&z={z}&hl=pt-BR",
+        {
+          attribution: "Dados do mapa &copy; Google Terreno | INMET 1991–2020",
+          maxZoom: 20
+        }
+      );
+
+      const googleHibrido = L.tileLayer(
+        "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&hl=pt-BR",
+        {
+          attribution: "Imagens &copy; Google Satélite | INMET 1991–2020",
+          maxZoom: 20
+        }
+      );
+
+      const esriLightBase = L.tileLayer(
+        "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+        {
+          attribution: "Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ | INMET 1991–2020",
+          maxZoom: 16
+        }
+      );
+      const esriLightLabels = L.tileLayer(
+        "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}",
+        {
+          maxZoom: 16,
+          pane: "overlayPane"
+        }
+      );
+      const mapaClaroMinimalista = L.layerGroup([esriLightBase, esriLightLabels]);
+
+      const mapaTopografico = L.tileLayer(
+        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
+        {
+          attribution: "Tiles &copy; Esri &mdash; Esri, USGS, NOAA | INMET 1991–2020",
+          maxZoom: 18
+        }
+      );
+
+      // Define o Google Maps Padrão (visual verde/azul clássico) como padrão ao abrir
+      googlePadrao.addTo(mapInstance);
+
+      L.control.layers(
+        {
+          "Google Maps Padrão": googlePadrao,
+          "Google Maps Relevo": googleTerreno,
+          "Google Maps Satélite (Híbrido)": googleHibrido,
+          "Relevo & Topografia (Esri)": mapaTopografico,
+          "Minimalista Claro (Esri)": mapaClaroMinimalista
+        },
+        null,
+        { position: "bottomright" }
+      ).addTo(mapInstance);
+
+      // Polígono aproximado das terras altas de conforto térmico (Planalto Atlântico, Mantiqueira, Espinhaço e Chapada Diamantina)
+      const coordsPlanalto = [
+        [-14.3, -41.8],
+        [-16.8, -42.6],
+        [-18.0, -43.2],
+        [-20.2, -43.0],
+        [-22.3, -42.3],
+        [-23.6, -45.5],
+        [-25.8, -48.9],
+        [-29.6, -50.4],
+        [-29.4, -51.4],
+        [-25.3, -50.2],
+        [-22.8, -47.2],
+        [-20.4, -47.6],
+        [-18.2, -44.5],
+        [-14.8, -40.5]
+      ];
+
+      planaltoPolygonLayer = L.polygon(coordsPlanalto, {
+        color: "#c85a32",
+        weight: 1.5,
+        dashArray: "5, 5",
+        fillColor: "#c85a32",
+        fillOpacity: 0.09
+      }).addTo(mapInstance);
+
+      planaltoPolygonLayer.bindTooltip(
+        "<strong>Corredor Bioclimático de Altitude</strong><br/>Serra do Espinhaço, Mantiqueira, Órgãos e Planalto Meridional (800m–1.650m)",
+        { sticky: true }
+      );
+
+      markersLayerGroup = L.layerGroup().addTo(mapInstance);
+    }
+
+    function atualizarMarcadoresMapa() {
+      if (!markersLayerGroup) return;
+      markersLayerGroup.clearLayers();
+      markerById = {};
+
+      for (const feat of allFeatures) {
+        const [lon, lat] = feat.geometry.coordinates;
+        const p = feat.properties;
+        const isSelected = String(p.id) === String(selectedStationId);
+        const styleInfo = corPorCamada(feat, currentMapLayer);
+
+        const icon = L.divIcon({
+          className: "",
+          html: `<div class="iccb-marker-pin ${isSelected ? "is-selected" : ""}" style="width:36px;height:24px;background:${styleInfo.bg};color:${styleInfo.text};">${styleInfo.label}</div>`,
+          iconSize: [36, 24],
+          iconAnchor: [18, 12]
+        });
+
+        const marker = L.marker([lat, lon], { icon });
+        marker.bindTooltip(
+          `<div class="text-xs"><strong>#${p.ranking} ${p.nome} - ${p.uf}</strong> (${p.altitude_m}m)<br/>ICCB: <strong>${p.nota_conforto_anual.toFixed(1)}</strong> — ${p.classificacao}</div>`,
+          { direction: "top", offset: [0, -10] }
+        );
+
+        marker.on("click", () => {
+          selecionarEstacao(p.id, true);
+        });
+
+        marker.addTo(markersLayerGroup);
+        markerById[p.id] = marker;
+      }
+    }
+
+    // =========================================================================
+    // 4. SLIDERS DE PERSONALIZAÇÃO EM TEMPO REAL
+    // =========================================================================
+    function criarHTMLSliders(prefix) {
+      return `
+        <div class="space-y-2.5 text-xs">
+          <div>
+            <div class="flex justify-between font-semibold text-slate-700 mb-1">
+              <span>Limite de Calor / Heat Index</span>
+              <span class="font-mono text-[#c85a32]" id="${prefix}_val_hiMaxLimit">${userParams.hiMaxLimit.toFixed(1)}°C</span>
+            </div>
+            <input type="range" min="24.0" max="32.0" step="0.5" value="${userParams.hiMaxLimit}" data-param="hiMaxLimit" class="iccb-slider param-slider" />
+            <div class="flex justify-between text-[10px] text-slate-400 mt-0.5"><span>24°C (Rigoroso)</span><span>32°C (Tolerante ao calor)</span></div>
+          </div>
+
+          <div>
+            <div class="flex justify-between font-semibold text-slate-700 mb-1">
+              <span>Umidade Mínima Aceitável (Seca)</span>
+              <span class="font-mono text-[#c85a32]" id="${prefix}_val_urMinLimit">${userParams.urMinLimit.toFixed(0)}%</span>
+            </div>
+            <input type="range" min="40.0" max="65.0" step="1.0" value="${userParams.urMinLimit}" data-param="urMinLimit" class="iccb-slider param-slider" />
+            <div class="flex justify-between text-[10px] text-slate-400 mt-0.5"><span>40% (Tolera ar seco)</span><span>65% (Exige ar úmido)</span></div>
+          </div>
+
+          <div>
+            <div class="flex justify-between font-semibold text-slate-700 mb-1">
+              <span>Frio Noturno Mínimo Tolerado</span>
+              <span class="font-mono text-[#c85a32]" id="${prefix}_val_tminLowLimit">${userParams.tminLowLimit.toFixed(1)}°C</span>
+            </div>
+            <input type="range" min="5.0" max="16.0" step="0.5" value="${userParams.tminLowLimit}" data-param="tminLowLimit" class="iccb-slider param-slider" />
+            <div class="flex justify-between text-[10px] text-slate-400 mt-0.5"><span>5°C (Gosta de frio)</span><span>16°C (Sensível ao frio)</span></div>
+          </div>
+
+          <div>
+            <div class="flex justify-between font-semibold text-slate-700 mb-1">
+              <span>Teto de Chuva Mensal</span>
+              <span class="font-mono text-[#c85a32]" id="${prefix}_val_rainMaxLimit">${userParams.rainMaxLimit.toFixed(0)} mm</span>
+            </div>
+            <input type="range" min="100.0" max="260.0" step="10.0" value="${userParams.rainMaxLimit}" data-param="rainMaxLimit" class="iccb-slider param-slider" />
+            <div class="flex justify-between text-[10px] text-slate-400 mt-0.5"><span>100 mm/mês</span><span>260 mm/mês</span></div>
+          </div>
+
+          <div class="pt-1 border-t border-amber-200/70 grid grid-cols-3 gap-2">
+            <div>
+              <label class="block text-[10px] font-bold text-slate-600 mb-0.5">Peso Temp. (<span id="${prefix}_val_weightTemp">${userParams.weightTemp.toFixed(1)}x</span>)</label>
+              <input type="range" min="0.0" max="2.5" step="0.1" value="${userParams.weightTemp}" data-param="weightTemp" class="iccb-slider param-slider" />
+            </div>
+            <div>
+              <label class="block text-[10px] font-bold text-slate-600 mb-0.5">Peso Umid. (<span id="${prefix}_val_weightUr">${userParams.weightUr.toFixed(1)}x</span>)</label>
+              <input type="range" min="0.0" max="2.5" step="0.1" value="${userParams.weightUr}" data-param="weightUr" class="iccb-slider param-slider" />
+            </div>
+            <div>
+              <label class="block text-[10px] font-bold text-slate-600 mb-0.5">Peso Chuva (<span id="${prefix}_val_weightRain">${userParams.weightRain.toFixed(1)}x</span>)</label>
+              <input type="range" min="0.0" max="2.5" step="0.1" value="${userParams.weightRain}" data-param="weightRain" class="iccb-slider param-slider" />
+            </div>
+          </div>
+
+          <div class="pt-1 flex justify-end">
+            <button type="button" class="btn-reset-params px-2.5 py-1 rounded-lg bg-slate-200/80 hover:bg-slate-300 text-slate-700 font-semibold text-[11px] transition">
+              Restaurar Modelo Oficial ICCB v1.0
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    function montarSliders() {
+      const mountD = document.getElementById("slidersMountDesktop");
+      const mountM = document.getElementById("slidersMountMobile");
+      if (mountD) mountD.innerHTML = criarHTMLSliders("desk");
+      if (mountM) mountM.innerHTML = criarHTMLSliders("mob");
+
+      document.querySelectorAll(".param-slider").forEach((input) => {
+        input.addEventListener("input", (e) => {
+          const param = e.target.getAttribute("data-param");
+          const val = parseFloat(e.target.value);
+          userParams[param] = val;
+
+          // Sync all sliders with same data-param
+          document.querySelectorAll(`.param-slider[data-param="${param}"]`).forEach((other) => {
+            if (other !== e.target) other.value = val;
+          });
+
+          atualizarLabelsSliders();
+          recalcularTudoERenderizar();
+        });
+      });
+
+      document.querySelectorAll(".btn-reset-params").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          userParams = { ...DEFAULT_PARAMS };
+          document.querySelectorAll(".param-slider").forEach((inp) => {
+            const p = inp.getAttribute("data-param");
+            inp.value = userParams[p];
+          });
+          atualizarLabelsSliders();
+          recalcularTudoERenderizar();
+        });
+      });
+    }
+
+    function atualizarLabelsSliders() {
+      ["desk", "mob"].forEach((prefix) => {
+        const elHi = document.getElementById(`${prefix}_val_hiMaxLimit`);
+        const elUr = document.getElementById(`${prefix}_val_urMinLimit`);
+        const elTm = document.getElementById(`${prefix}_val_tminLowLimit`);
+        const elRn = document.getElementById(`${prefix}_val_rainMaxLimit`);
+        const elWT = document.getElementById(`${prefix}_val_weightTemp`);
+        const elWU = document.getElementById(`${prefix}_val_weightUr`);
+        const elWR = document.getElementById(`${prefix}_val_weightRain`);
+
+        if (elHi) elHi.textContent = `${userParams.hiMaxLimit.toFixed(1)}°C`;
+        if (elUr) elUr.textContent = `${userParams.urMinLimit.toFixed(0)}%`;
+        if (elTm) elTm.textContent = `${userParams.tminLowLimit.toFixed(1)}°C`;
+        if (elRn) elRn.textContent = `${userParams.rainMaxLimit.toFixed(0)} mm`;
+        if (elWT) elWT.textContent = `${userParams.weightTemp.toFixed(1)}x`;
+        if (elWU) elWU.textContent = `${userParams.weightUr.toFixed(1)}x`;
+        if (elWR) elWR.textContent = `${userParams.weightRain.toFixed(1)}x`;
+      });
+    }
+
+    // =========================================================================
+    // 5. RENDERIZAÇÃO DO RANKING E PAINEL DE DETALHES DA ESTAÇÃO
+    // =========================================================================
+    function obterEstacoesFiltradas() {
+      const q = searchQuery.trim().toLowerCase();
+      return allFeatures.filter((f) => {
+        const p = f.properties;
+        if (currentRegionFilter === "ALTITUDE" && p.altitude_m < 800) return false;
+        if (currentRegionFilter !== "ALL" && currentRegionFilter !== "ALTITUDE" && p.regiao !== currentRegionFilter) {
+          return false;
+        }
+        if (!q) return true;
+        return (
+          p.nome.toLowerCase().includes(q) ||
+          p.uf.toLowerCase().includes(q) ||
+          p.regiao.toLowerCase().includes(q) ||
+          String(p.id).toLowerCase().includes(q)
+        );
+      });
+    }
+
+    function renderizarRanking() {
+      const filtradas = obterEstacoesFiltradas();
+      const countLabel = document.getElementById("rankingCountLabel");
+      if (countLabel) countLabel.textContent = `Ranking das Cidades (${filtradas.length})`;
+
+      const htmlItens = filtradas
+        .map((f) => {
+          const p = f.properties;
+          const r = p.resumo_anual;
+          const cor = corPorNota(p.nota_conforto_anual);
+          const isSelected = String(p.id) === String(selectedStationId);
+          return `
+            <button
+              type="button"
+              data-station-id="${p.id}"
+              class="station-rank-item w-full text-left px-4 py-2.5 flex items-center justify-between gap-2 transition ${
+                isSelected ? "bg-amber-50/90 border-l-4 border-[#c85a32]" : "hover:bg-slate-50"
+              }"
+            >
+              <div class="flex items-center gap-2.5 min-w-0">
+                <span class="w-6 text-xs font-mono font-bold text-slate-400 shrink-0">#${String(p.ranking).padStart(2, "0")}</span>
+                <div class="min-w-0">
+                  <div class="font-display font-bold text-xs text-slate-900 truncate">${p.nome} <span class="text-slate-400 font-normal">• ${p.uf}</span></div>
+                  <div class="text-[11px] text-slate-500 flex items-center gap-2">
+                    <span>${p.altitude_m}m</span>
+                    <span>•</span>
+                    <span>Tmax ${r.tmax_media_anual}°C</span>
+                    <span>•</span>
+                    <span>UR mín ${r.ur_minima_mensal}%</span>
+                  </div>
+                </div>
+              </div>
+              <div class="flex flex-col items-end shrink-0">
+                <span class="px-2 py-0.5 rounded-md font-mono font-bold text-xs" style="background:${cor.bg};color:${cor.text};">
+                  ${p.nota_conforto_anual.toFixed(1)}
+                </span>
+                <span class="text-[10px] text-slate-400 mt-0.5">${p.classificacao}</span>
+              </div>
+            </button>
+          `;
+        })
+        .join("");
+
+      const deskList = document.getElementById("desktopRankingList");
+      const mobList = document.getElementById("mobileTabRanking");
+      if (deskList) deskList.innerHTML = htmlItens || `<div class="p-6 text-center text-xs text-slate-400">Nenhuma cidade encontrada para este filtro.</div>`;
+      if (mobList) mobList.innerHTML = htmlItens;
+
+      document.querySelectorAll(".station-rank-item").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const id = btn.getAttribute("data-station-id");
+          selecionarEstacao(id, true);
+        });
+      });
+    }
+
+    function gerarHTMLDetalhesEstacao(feat, suffix) {
+      const p = feat.properties;
+      const r = p.resumo_anual;
+      const pen = r.penalidades_medias;
+      const maxHi = Math.max(...p.series_mensais.indice_calor);
+
+      const penTotal = Math.max(0.1, pen.temperatura + pen.umidade + pen.chuva);
+      const pctTemp = Math.min(100, Math.round((pen.temperatura / 35) * 100));
+      const pctUr = Math.min(100, Math.round((pen.umidade / 35) * 100));
+      const pctChuva = Math.min(100, Math.round((pen.chuva / 35) * 100));
+
+      return `
+        <!-- KPI Summary Grid -->
+        <div class="grid grid-cols-3 gap-2">
+          <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-2.5">
+            <div class="text-[10px] font-semibold uppercase text-slate-400">Temp. Média</div>
+            <div class="font-mono font-bold text-sm text-slate-800 mt-0.5">${r.tmin_media_anual}° / ${r.tmax_media_anual}°C</div>
+            <div class="text-[10px] text-slate-500">Heat Index máx ${maxHi.toFixed(1)}°C</div>
+          </div>
+          <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-2.5">
+            <div class="text-[10px] font-semibold uppercase text-slate-400">Umidade Relativa</div>
+            <div class="font-mono font-bold text-sm text-slate-800 mt-0.5">${r.ur_media_anual}% <span class="text-xs font-normal text-slate-500">méd</span></div>
+            <div class="text-[10px] ${r.ur_minima_mensal < 55 ? "text-amber-600 font-semibold" : "text-slate-500"}">Mín. mensal: ${r.ur_minima_mensal}%</div>
+          </div>
+          <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-2.5">
+            <div class="text-[10px] font-semibold uppercase text-slate-400">Chuva &amp; Sol</div>
+            <div class="font-mono font-bold text-sm text-slate-800 mt-0.5">${r.chuva_acumulada_anual_mm} mm</div>
+            <div class="text-[10px] text-slate-500">${r.insolacao_anual_h}h sol/ano</div>
+          </div>
+        </div>
+
+        <!-- Best & Worst Month Banner -->
+        <div class="grid grid-cols-2 gap-2">
+          <div class="px-3 py-2 rounded-xl bg-emerald-50/80 border border-emerald-200/80 flex items-center justify-between">
+            <span class="text-[11px] font-semibold text-emerald-800">Melhor Mês</span>
+            <span class="font-mono font-bold text-xs text-emerald-900">${r.melhor_mes}</span>
+          </div>
+          <div class="px-3 py-2 rounded-xl bg-rose-50/80 border border-rose-200/80 flex items-center justify-between">
+            <span class="text-[11px] font-semibold text-rose-800">Pior Mês</span>
+            <span class="font-mono font-bold text-xs text-rose-900">${r.pior_mes}</span>
+          </div>
+        </div>
+
+        <!-- Decomposição de Penalidades -->
+        <div class="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 space-y-2">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-600">Decomposição de Penalidades Médias</h3>
+            <span class="text-[11px] font-mono text-slate-500">-${(pen.temperatura + pen.umidade + pen.chuva).toFixed(1)} pts/mês</span>
+          </div>
+          <div class="space-y-1.5 text-xs">
+            <div>
+              <div class="flex justify-between text-[11px] mb-0.5">
+                <span class="font-medium text-slate-700">Desconforto Térmico (Calor / Heat Index / Frio)</span>
+                <span class="font-mono font-semibold text-rose-600">-${pen.temperatura.toFixed(1)} pts</span>
+              </div>
+              <div class="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
+                <div class="h-full bg-[#c85a32]" style="width:${pctTemp}%"></div>
+              </div>
+            </div>
+            <div>
+              <div class="flex justify-between text-[11px] mb-0.5">
+                <span class="font-medium text-slate-700">Umidade Extrema (Secura &lt;${userParams.urMinLimit}% ou Abafamento &gt;${userParams.urMaxLimit}%)</span>
+                <span class="font-mono font-semibold text-amber-600">-${pen.umidade.toFixed(1)} pts</span>
+              </div>
+              <div class="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
+                <div class="h-full bg-amber-500" style="width:${pctUr}%"></div>
+              </div>
+            </div>
+            <div>
+              <div class="flex justify-between text-[11px] mb-0.5">
+                <span class="font-medium text-slate-700">Regime de Chuvas (Dilúvio &gt;${userParams.rainMaxLimit}mm ou Seca &lt;${userParams.rainMinLimit}mm)</span>
+                <span class="font-mono font-semibold text-sky-700">-${pen.chuva.toFixed(1)} pts</span>
+              </div>
+              <div class="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
+                <div class="h-full bg-[#1f5a6e]" style="width:${pctChuva}%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Gráfico 1: Termopluviométrico + Heat Index -->
+        <div class="bg-white border border-slate-200/90 rounded-2xl p-3.5">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-600">Climatologia Mensal: Temp., Heat Index &amp; Chuva</h3>
+          </div>
+          <div class="h-52">
+            <canvas id="chartMain_${suffix}"></canvas>
+          </div>
+        </div>
+
+        <!-- Gráfico 2: Nota Mensal ICCB & Umidade Relativa -->
+        <div class="bg-white border border-slate-200/90 rounded-2xl p-3.5">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-600">Nota Mensal ICCB (0–100) &amp; Umidade Relativa (%)</h3>
+          </div>
+          <div class="h-44">
+            <canvas id="chartUr_${suffix}"></canvas>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderizarGraficosEstacao(feat, suffix) {
+      const s = feat.properties.series_mensais;
+      const ctxMain = document.getElementById(`chartMain_${suffix}`);
+      const ctxUr = document.getElementById(`chartUr_${suffix}`);
+      if (!ctxMain || !ctxUr) return;
+
+      if (suffix === "desktop") {
+        if (chartMainDesktop) chartMainDesktop.destroy();
+        if (chartUrDesktop) chartUrDesktop.destroy();
+      } else {
+        if (chartMainMobile) chartMainMobile.destroy();
+        if (chartUrMobile) chartUrMobile.destroy();
+      }
+
+      const mainChart = new Chart(ctxMain, {
+        type: "bar",
+        data: {
+          labels: s.meses,
+          datasets: [
+            {
+              type: "line",
+              label: "Heat Index (Sensação °C)",
+              data: s.indice_calor,
+              borderColor: "#dc2626",
+              backgroundColor: "transparent",
+              borderWidth: 2,
+              borderDash: [4, 3],
+              pointRadius: 2.5,
+              tension: 0.35,
+              yAxisID: "yTemp"
+            },
+            {
+              type: "line",
+              label: "T. Máxima (°C)",
+              data: s.tmax,
+              borderColor: "#c85a32",
+              backgroundColor: "transparent",
+              borderWidth: 2.5,
+              pointRadius: 2.5,
+              tension: 0.35,
+              yAxisID: "yTemp"
+            },
+            {
+              type: "line",
+              label: "T. Mínima (°C)",
+              data: s.tmin,
+              borderColor: "#1f5a6e",
+              backgroundColor: "transparent",
+              borderWidth: 2.5,
+              pointRadius: 2.5,
+              tension: 0.35,
+              yAxisID: "yTemp"
+            },
+            {
+              type: "bar",
+              label: "Chuva (mm)",
+              data: s.chuva_mm,
+              backgroundColor: "rgba(103, 140, 153, 0.38)",
+              borderColor: "rgba(31, 90, 110, 0.65)",
+              borderWidth: 1,
+              borderRadius: 4,
+              yAxisID: "yRain"
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: "index", intersect: false },
+          plugins: {
+            legend: { position: "top", labels: { boxWidth: 10, font: { size: 10 } } }
+          },
+          scales: {
+            yTemp: {
+              type: "linear",
+              position: "left",
+              suggestedMin: 5,
+              suggestedMax: 38,
+              ticks: { font: { size: 10 }, callback: (v) => `${v}°` }
+            },
+            yRain: {
+              type: "linear",
+              position: "right",
+              suggestedMin: 0,
+              suggestedMax: 360,
+              grid: { drawOnChartArea: false },
+              ticks: { font: { size: 10 }, callback: (v) => `${v}mm` }
+            },
+            x: { ticks: { font: { size: 10 } } }
+          }
+        }
+      });
+
+      const urChart = new Chart(ctxUr, {
+        type: "line",
+        data: {
+          labels: s.meses,
+          datasets: [
+            {
+              label: "Nota ICCB Mensal",
+              data: s.nota_mensal,
+              borderColor: "#c85a32",
+              backgroundColor: "rgba(200, 90, 50, 0.14)",
+              fill: true,
+              borderWidth: 2.5,
+              pointRadius: 3,
+              tension: 0.3
+            },
+            {
+              label: "Umidade Relativa (%)",
+              data: s.ur,
+              borderColor: "#1f5a6e",
+              backgroundColor: "transparent",
+              borderWidth: 2,
+              borderDash: [3, 3],
+              pointRadius: 2.5,
+              tension: 0.3
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: "index", intersect: false },
+          plugins: {
+            legend: { position: "top", labels: { boxWidth: 10, font: { size: 10 } } }
+          },
+          scales: {
+            y: {
+              min: 0,
+              max: 100,
+              ticks: { font: { size: 10 } }
+            },
+            x: { ticks: { font: { size: 10 } } }
+          }
+        }
+      });
+
+      if (suffix === "desktop") {
+        chartMainDesktop = mainChart;
+        chartUrDesktop = urChart;
+      } else {
+        chartMainMobile = mainChart;
+        chartUrMobile = urChart;
+      }
+    }
+
+    function selecionarEstacao(stationId, panMap = false) {
+      const feat = allFeatures.find((f) => String(f.properties.id) === String(stationId)) || allFeatures[0];
+      if (!feat) return;
+      selectedStationId = feat.properties.id;
+
+      const p = feat.properties;
+      const [lon, lat] = feat.geometry.coordinates;
+      const cor = corPorNota(p.nota_conforto_anual);
+
+      if (panMap && mapInstance) {
+        mapInstance.flyTo([lat, lon], Math.max(mapInstance.getZoom(), 6), { duration: 0.65 });
+      }
+
+      // Atualizar cabeçalho do painel direito (Desktop)
+      document.getElementById("detailRankBadge").textContent = `#${String(p.ranking).padStart(2, "0")}`;
+      const classBadge = document.getElementById("detailClassBadge");
+      classBadge.textContent = p.classificacao;
+      classBadge.style.backgroundColor = cor.bg;
+      classBadge.style.color = cor.text;
+
+      document.getElementById("detailCodeBadge").textContent = `EST. ${p.id}`;
+      document.getElementById("detailCityTitle").textContent = `${p.nome} - ${p.uf}`;
+      document.getElementById("detailSubMeta").textContent = `Região ${p.regiao} • Altitude: ${p.altitude_m} m • Lat ${lat.toFixed(2)}°, Lon ${lon.toFixed(2)}°`;
+
+      const scoreBig = document.getElementById("detailScoreBig");
+      scoreBig.textContent = p.nota_conforto_anual.toFixed(1);
+      scoreBig.style.color = cor.bg === "#b8c8d0" || cor.bg === "#d4c8b8" ? "#334155" : cor.bg;
+
+      // Garantir que o painel direito esteja visível no Desktop
+      const rightPanel = document.getElementById("desktopRightPanel");
+      const reopenBtn = document.getElementById("btnReopenRightPanel");
+      rightPanel.classList.remove("translate-x-[480px]");
+      reopenBtn.classList.add("hidden");
+      reopenBtn.classList.remove("lg:flex");
+
+      // Renderizar corpo de detalhes Desktop + Mobile
+      document.getElementById("stationDetailBodyDesktop").innerHTML = gerarHTMLDetalhesEstacao(feat, "desktop");
+      document.getElementById("mobileTabDetails").innerHTML = gerarHTMLDetalhesEstacao(feat, "mobile");
+
+      renderizarGraficosEstacao(feat, "desktop");
+      renderizarGraficosEstacao(feat, "mobile");
+
+      // Atualizar Bottom Sheet Mobile Header
+      document.getElementById("mobileSheetRank").textContent = `#${String(p.ranking).padStart(2, "0")}`;
+      document.getElementById("mobileSheetCity").textContent = `${p.nome} - ${p.uf}`;
+      document.getElementById("mobileSheetMeta").textContent = `${p.classificacao} • Alt. ${p.altitude_m}m • Chuva ${p.resumo_anual.chuva_acumulada_anual_mm}mm`;
+      const mobScore = document.getElementById("mobileSheetScore");
+      mobScore.textContent = p.nota_conforto_anual.toFixed(1);
+      mobScore.style.color = cor.bg === "#b8c8d0" || cor.bg === "#d4c8b8" ? "#334155" : cor.bg;
+
+      atualizarMarcadoresMapa();
+      renderizarRanking();
+    }
+
+    function recalcularTudoERenderizar() {
+      recalcularTodasEstacoes();
+      selecionarEstacao(selectedStationId, false);
+      popularSelectsComparador();
+    }
+
+    // =========================================================================
+    // 6. COMPARADOR LADO A LADO (CIDADE A vs. CIDADE B)
+    // =========================================================================
+    function popularSelectsComparador() {
+      const selA = document.getElementById("compareSelectA");
+      const selB = document.getElementById("compareSelectB");
+      if (!selA || !selB) return;
+
+      const prevA = selA.value || "83377"; // Brasília-DF
+      const prevB = selB.value || "83536"; // Diamantina-MG
+
+      const optionsHtml = allFeatures
+        .map((f) => {
+          const p = f.properties;
+          return `<option value="${p.id}">#${String(p.ranking).padStart(2, "0")} ${p.nome} - ${p.uf} (ICCB ${p.nota_conforto_anual.toFixed(1)} | ${p.altitude_m}m)</option>`;
+        })
+        .join("");
+
+      selA.innerHTML = optionsHtml;
+      selB.innerHTML = optionsHtml;
+
+      selA.value = allFeatures.some((f) => String(f.properties.id) === String(prevA)) ? prevA : allFeatures[0].properties.id;
+      selB.value = allFeatures.some((f) => String(f.properties.id) === String(prevB)) ? prevB : (allFeatures[1] || allFeatures[0]).properties.id;
+    }
+
+    function renderizarComparacao() {
+      const idA = document.getElementById("compareSelectA").value;
+      const idB = document.getElementById("compareSelectB").value;
+
+      const featA = allFeatures.find((f) => String(f.properties.id) === String(idA)) || allFeatures[0];
+      const featB = allFeatures.find((f) => String(f.properties.id) === String(idB)) || allFeatures[1] || allFeatures[0];
+
+      const pA = featA.properties;
+      const pB = featB.properties;
+      const sA = pA.series_mensais;
+      const sB = pB.series_mensais;
+
+      let mesesVitoriaA = 0;
+      let mesesVitoriaB = 0;
+      for (let m = 0; m < 12; m++) {
+        if (sA.nota_mensal[m] > sB.nota_mensal[m]) mesesVitoriaA++;
+        else if (sB.nota_mensal[m] > sA.nota_mensal[m]) mesesVitoriaB++;
+      }
+
+      const diffScore = (pA.nota_conforto_anual - pB.nota_conforto_anual).toFixed(1);
+      const winnerName = pA.nota_conforto_anual >= pB.nota_conforto_anual ? `${pA.nome}-${pA.uf}` : `${pB.nome}-${pB.uf}`;
+
+      document.getElementById("compareSummaryCards").innerHTML = `
+        <div class="p-3.5 rounded-2xl border border-slate-200 bg-white flex items-center justify-between">
+          <div>
+            <span class="text-[10px] font-bold uppercase text-[#c85a32]">Cidade A • #${pA.ranking}</span>
+            <div class="font-display font-bold text-base text-slate-900">${pA.nome} - ${pA.uf}</div>
+            <div class="text-xs text-slate-500">Alt. ${pA.altitude_m}m • UR mín ${pA.resumo_anual.ur_minima_mensal}% • ${pA.resumo_anual.chuva_acumulada_anual_mm}mm</div>
+          </div>
+          <div class="text-right">
+            <div class="font-mono font-extrabold text-2xl text-[#c85a32]">${pA.nota_conforto_anual.toFixed(1)}</div>
+            <div class="text-[10px] font-semibold text-slate-400">${pA.classificacao}</div>
+          </div>
+        </div>
+
+        <div class="p-3.5 rounded-2xl border border-slate-200 bg-slate-900 text-white flex flex-col justify-center items-center text-center">
+          <span class="text-[10px] font-mono uppercase tracking-wider text-amber-300">Veredito Anual ICCB</span>
+          <div class="font-display font-bold text-sm mt-0.5">${winnerName} lidera por ${Math.abs(diffScore)} pts</div>
+          <div class="text-[11px] text-slate-300 mt-1">Meses mais confortáveis: <strong>${pA.nome} (${mesesVitoriaA})</strong> vs. <strong>${pB.nome} (${mesesVitoriaB})</strong></div>
+        </div>
+
+        <div class="p-3.5 rounded-2xl border border-slate-200 bg-white flex items-center justify-between">
+          <div>
+            <span class="text-[10px] font-bold uppercase text-[#1f5a6e]">Cidade B • #${pB.ranking}</span>
+            <div class="font-display font-bold text-base text-slate-900">${pB.nome} - ${pB.uf}</div>
+            <div class="text-xs text-slate-500">Alt. ${pB.altitude_m}m • UR mín ${pB.resumo_anual.ur_minima_mensal}% • ${pB.resumo_anual.chuva_acumulada_anual_mm}mm</div>
+          </div>
+          <div class="text-right">
+            <div class="font-mono font-extrabold text-2xl text-[#1f5a6e]">${pB.nota_conforto_anual.toFixed(1)}</div>
+            <div class="text-[10px] font-semibold text-slate-400">${pB.classificacao}</div>
+          </div>
+        </div>
+      `;
+
+      Object.values(compareCharts).forEach((c) => c && c.destroy());
+
+      compareCharts.score = new Chart(document.getElementById("compareChartScore"), {
+        type: "line",
+        data: {
+          labels: MESES_ORDEM,
+          datasets: [
+            { label: `${pA.nome}-${pA.uf}`, data: sA.nota_mensal, borderColor: "#c85a32", backgroundColor: "rgba(200,90,50,0.12)", fill: true, borderWidth: 2.5, tension: 0.3 },
+            { label: `${pB.nome}-${pB.uf}`, data: sB.nota_mensal, borderColor: "#1f5a6e", backgroundColor: "rgba(31,90,110,0.12)", fill: true, borderWidth: 2.5, tension: 0.3 }
+          ]
+        },
+        options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100 } } }
+      });
+
+      compareCharts.temp = new Chart(document.getElementById("compareChartTemp"), {
+        type: "line",
+        data: {
+          labels: MESES_ORDEM,
+          datasets: [
+            { label: `Heat Index ${pA.nome}`, data: sA.indice_calor, borderColor: "#c85a32", borderWidth: 2.5, tension: 0.3 },
+            { label: `Heat Index ${pB.nome}`, data: sB.indice_calor, borderColor: "#1f5a6e", borderWidth: 2.5, tension: 0.3 },
+            { label: `T. Mín ${pA.nome}`, data: sA.tmin, borderColor: "#c85a32", borderDash: [4, 4], borderWidth: 1.5, tension: 0.3 },
+            { label: `T. Mín ${pB.nome}`, data: sB.tmin, borderColor: "#1f5a6e", borderDash: [4, 4], borderWidth: 1.5, tension: 0.3 }
+          ]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+
+      compareCharts.ur = new Chart(document.getElementById("compareChartHumidity"), {
+        type: "line",
+        data: {
+          labels: MESES_ORDEM,
+          datasets: [
+            { label: `UR % ${pA.nome}`, data: sA.ur, borderColor: "#c85a32", borderWidth: 2.5, tension: 0.3 },
+            { label: `UR % ${pB.nome}`, data: sB.ur, borderColor: "#1f5a6e", borderWidth: 2.5, tension: 0.3 }
+          ]
+        },
+        options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 25, max: 100 } } }
+      });
+
+      compareCharts.rain = new Chart(document.getElementById("compareChartRain"), {
+        type: "bar",
+        data: {
+          labels: MESES_ORDEM,
+          datasets: [
+            { label: `Chuva (mm) ${pA.nome}`, data: sA.chuva_mm, backgroundColor: "rgba(200, 90, 50, 0.75)", borderRadius: 4 },
+            { label: `Chuva (mm) ${pB.nome}`, data: sB.chuva_mm, backgroundColor: "rgba(31, 90, 110, 0.75)", borderRadius: 4 }
+          ]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+    }
+
+    // =========================================================================
+    // 7. INTEGRAÇÃO AO VIVO COM A NASA POWER API NO NAVEGADOR
+    // =========================================================================
+    async function geocodificarCidadeBrasil(query) {
+      const statusEl = document.getElementById("nasaStatusMsg");
+      statusEl.classList.remove("hidden");
+      statusEl.textContent = "Localizando coordenadas do município...";
+      try {
+        const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=br&limit=1&q=${encodeURIComponent(query)}`;
+        const res = await fetch(url, { headers: { "Accept-Language": "pt-BR" } });
+        const data = await res.json();
+        if (!data || !data.length) {
+          statusEl.textContent = "Município não encontrado. Verifique a grafia ou insira Lat/Lon manualmente.";
+          return;
+        }
+        const item = data[0];
+        const parts = item.display_name.split(",").map((s) => s.trim());
+        document.getElementById("nasaInputNome").value = parts[0] || query;
+        document.getElementById("nasaInputLat").value = parseFloat(item.lat).toFixed(4);
+        document.getElementById("nasaInputLon").value = parseFloat(item.lon).toFixed(4);
+        statusEl.textContent = `Coordenadas localizadas: ${item.display_name}`;
+      } catch (err) {
+        statusEl.textContent = "Erro ao geocodificar. Informe Lat/Lon diretamente.";
+      }
+    }
+
+    async function consultarNasaPowerAoVivo() {
+      const nome = document.getElementById("nasaInputNome").value.trim() || "Município NASA";
+      const uf = (document.getElementById("nasaInputUF").value.trim() || "BR").toUpperCase();
+      const altInput = parseInt(document.getElementById("nasaInputAlt").value, 10) || 500;
+      const lat = parseFloat(document.getElementById("nasaInputLat").value);
+      const lon = parseFloat(document.getElementById("nasaInputLon").value);
+      const statusEl = document.getElementById("nasaStatusMsg");
+
+      if (isNaN(lat) || isNaN(lon)) {
+        statusEl.classList.remove("hidden");
+        statusEl.textContent = "Informe valores numéricos válidos para Latitude e Longitude.";
+        return;
+      }
+
+      statusEl.classList.remove("hidden");
+      statusEl.textContent = "Consultando satélite NASA POWER Climatology (T2M_MAX, T2M_MIN, RH2M, PRECTOTCORR)...";
+
+      try {
+        const url = `https://power.larc.nasa.gov/api/temporal/climatology/point?parameters=T2M_MAX,T2M_MIN,RH2M,PRECTOTCORR&community=SB&longitude=${lon}&latitude=${lat}&format=JSON`;
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const json = await resp.json();
+        const param = json.properties.parameter;
+        const elev = json.geometry && json.geometry.coordinates && json.geometry.coordinates[2]
+          ? Math.round(json.geometry.coordinates[2])
+          : altInput;
+
+        const keys = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+        const dias = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+        const tmax = keys.map((k) => Math.round(param.T2M_MAX[k] * 10) / 10);
+        const tmin = keys.map((k) => Math.round(param.T2M_MIN[k] * 10) / 10);
+        const ur = keys.map((k) => Math.round(param.RH2M[k] * 10) / 10);
+        const chuva = keys.map((k, i) => Math.round(param.PRECTOTCORR[k] * dias[i] * 10) / 10);
+        const insolacao = keys.map(() => 200);
+
+        const newId = `NASA_${Date.now().toString().slice(-4)}`;
+        const newFeature = {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [lon, lat] },
+          properties: {
+            id: newId,
+            nome,
+            uf,
+            regiao: "NASA POWER",
+            altitude_m: elev,
+            nota_conforto_anual: 0,
+            classificacao: "",
+            resumo_anual: {
+              tmax_media_anual: Math.round((tmax.reduce((a, b) => a + b, 0) / 12) * 10) / 10,
+              tmin_media_anual: Math.round((tmin.reduce((a, b) => a + b, 0) / 12) * 10) / 10,
+              ur_media_anual: Math.round((ur.reduce((a, b) => a + b, 0) / 12) * 10) / 10,
+              ur_minima_mensal: Math.min(...ur),
+              chuva_acumulada_anual_mm: Math.round(chuva.reduce((a, b) => a + b, 0)),
+              insolacao_anual_h: 2400,
+              melhor_mes: "",
+              pior_mes: "",
+              penalidades_medias: { temperatura: 0, umidade: 0, chuva: 0 }
+            },
+            series_mensais: {
+              meses: MESES_ORDEM,
+              tmax,
+              tmin,
+              indice_calor: [],
+              ur,
+              chuva_mm: chuva,
+              insolacao_h: insolacao,
+              nota_mensal: []
+            }
+          }
+        };
+
+        allFeatures.push(newFeature);
+        recalcularTodasEstacoes();
+        popularSelectsComparador();
+        selecionarEstacao(newId, true);
+
+        statusEl.textContent = `Sucesso! ${nome}-${uf} adicionado ao mapa e ranking.`;
+        setTimeout(() => {
+          document.getElementById("nasaModal").classList.add("hidden");
+        }, 700);
+      } catch (err) {
+        statusEl.textContent = `Falha ao consultar a API NASA POWER (${err.message}). Verifique sua conexão.`;
+      }
+    }
+
+    // =========================================================================
+    // 8. INICIALIZAÇÃO E EVENT LISTENERS
+    // =========================================================================
+    async function carregarDadosEstacoes() {
+      try {
+        const res = await fetch("./data/estacoes_clima_brasil.geojson");
+        if (res.ok) {
+          const data = await res.json();
+          return data.features || [];
+        }
+      } catch (_) {
+        // Fallback automático para quando aberto via file://
+      }
+      if (window.ESTACOES_CLIMA_GEOJSON && window.ESTACOES_CLIMA_GEOJSON.features) {
+        return window.ESTACOES_CLIMA_GEOJSON.features;
+      }
+      return [];
+    }
+
+    function configurarEventosUI() {
+      // Busca Desktop & Mobile
+      const onSearch = (val) => {
+        searchQuery = val;
+        renderizarRanking();
+      };
+      document.getElementById("desktopSearchInput").addEventListener("input", (e) => onSearch(e.target.value));
+      document.getElementById("mobileSearchInput").addEventListener("input", (e) => onSearch(e.target.value));
+
+      // Filtro de Região
+      document.querySelectorAll(".region-pill").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          currentRegionFilter = btn.getAttribute("data-region");
+          document.querySelectorAll(".region-pill").forEach((b) => {
+            b.className = "region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 shrink-0";
+          });
+          btn.className = "region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-[#1f5a6e] text-white shrink-0";
+          renderizarRanking();
+        });
+      });
+
+      // Troca de Camada Desktop & Mobile
+      const setLayer = (layer) => {
+        currentMapLayer = layer;
+        document.querySelectorAll(".layer-btn").forEach((b) => {
+          const active = b.getAttribute("data-layer") === layer;
+          b.className = active
+            ? "layer-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1f5a6e] text-white transition"
+            : "layer-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition";
+        });
+        document.getElementById("mobileLayerSelect").value = layer;
+        atualizarMarcadoresMapa();
+      };
+
+      document.querySelectorAll(".layer-btn").forEach((btn) => {
+        btn.addEventListener("click", () => setLayer(btn.getAttribute("data-layer")));
+      });
+      document.getElementById("mobileLayerSelect").addEventListener("change", (e) => setLayer(e.target.value));
+
+      // Polígono Planalto Atlântico
+      document.getElementById("btnTogglePlanaltoPolygon").addEventListener("click", () => {
+        showPlanaltoPolygon = !showPlanaltoPolygon;
+        if (showPlanaltoPolygon) {
+          planaltoPolygonLayer.addTo(mapInstance);
+        } else {
+          mapInstance.removeLayer(planaltoPolygonLayer);
+        }
+      });
+
+      // Ocultar / Reabrir Painel Direito Desktop
+      document.getElementById("btnCloseRightPanel").addEventListener("click", () => {
+        document.getElementById("desktopRightPanel").classList.add("translate-x-[480px]");
+        const reopen = document.getElementById("btnReopenRightPanel");
+        reopen.classList.remove("hidden");
+        reopen.classList.add("lg:flex");
+      });
+      document.getElementById("btnReopenRightPanel").addEventListener("click", () => {
+        document.getElementById("desktopRightPanel").classList.remove("translate-x-[480px]");
+        const reopen = document.getElementById("btnReopenRightPanel");
+        reopen.classList.add("hidden");
+        reopen.classList.remove("lg:flex");
+      });
+
+      // Bottom Sheet Mobile (Minimizado vs Expandido)
+      let sheetExpanded = false;
+      const sheetEl = document.getElementById("mobileBottomSheet");
+      const btnSheet = document.getElementById("btnToggleMobileSheet");
+      const toggleSheet = (forceState) => {
+        sheetExpanded = typeof forceState === "boolean" ? forceState : !sheetExpanded;
+        sheetEl.classList.toggle("translate-y-[68vh]", !sheetExpanded);
+        sheetEl.classList.toggle("translate-y-0", sheetExpanded);
+        btnSheet.textContent = sheetExpanded ? "Minimizar" : "Expandir";
+      };
+      document.getElementById("mobileSheetHandle").addEventListener("click", () => toggleSheet());
+
+      // Abas Mobile dentro do Bottom Sheet
+      document.querySelectorAll(".mob-tab-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const tab = btn.getAttribute("data-mobtab");
+          document.getElementById("mobileTabDetails").classList.toggle("hidden", tab !== "details");
+          document.getElementById("mobileTabRanking").classList.toggle("hidden", tab !== "ranking");
+          document.querySelectorAll(".mob-tab-btn").forEach((b) => {
+            const active = b.getAttribute("data-mobtab") === tab;
+            b.className = active
+              ? "mob-tab-btn py-2 px-3 text-xs font-bold border-b-2 border-[#c85a32] text-[#c85a32]"
+              : "mob-tab-btn py-2 px-3 text-xs font-bold border-b-2 border-transparent text-slate-500";
+          });
+        });
+      });
+
+      // Modal Sliders Mobile
+      document.getElementById("btnOpenMobileSliders").addEventListener("click", () => {
+        document.getElementById("mobileSlidersModal").classList.remove("hidden");
+      });
+      document.getElementById("btnCloseMobileSliders").addEventListener("click", () => {
+        document.getElementById("mobileSlidersModal").classList.add("hidden");
+      });
+
+      // Modal Comparador Cidade A vs B
+      const openCompare = (stationIdForA) => {
+        popularSelectsComparador();
+        if (stationIdForA) {
+          document.getElementById("compareSelectA").value = stationIdForA;
+          if (document.getElementById("compareSelectB").value === String(stationIdForA)) {
+            const altCity = allFeatures.find((f) => String(f.properties.id) !== String(stationIdForA));
+            if (altCity) document.getElementById("compareSelectB").value = altCity.properties.id;
+          }
+        }
+        document.getElementById("compareModal").classList.remove("hidden");
+        renderizarComparacao();
+      };
+
+      document.getElementById("btnOpenCompareDesktop").addEventListener("click", () => openCompare());
+      document.getElementById("btnOpenCompareMobile").addEventListener("click", () => openCompare());
+      document.getElementById("btnCompareFromDetail").addEventListener("click", () => openCompare(selectedStationId));
+      document.getElementById("btnCloseCompareModal").addEventListener("click", () => {
+        document.getElementById("compareModal").classList.add("hidden");
+      });
+      document.getElementById("compareSelectA").addEventListener("change", renderizarComparacao);
+      document.getElementById("compareSelectB").addEventListener("change", renderizarComparacao);
+
+      document.querySelectorAll(".preset-compare-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const [idA, idB] = btn.getAttribute("data-preset").split(",");
+          document.getElementById("compareSelectA").value = idA;
+          document.getElementById("compareSelectB").value = idB;
+          renderizarComparacao();
+        });
+      });
+
+      // Modal NASA POWER API
+      const openNasa = () => document.getElementById("nasaModal").classList.remove("hidden");
+      document.getElementById("btnOpenNasaModalDesktop").addEventListener("click", openNasa);
+      document.getElementById("btnOpenNasaModalMobile").addEventListener("click", openNasa);
+      document.getElementById("btnCloseNasaModal").addEventListener("click", () => {
+        document.getElementById("nasaModal").classList.add("hidden");
+      });
+      document.getElementById("btnGeocodeCity").addEventListener("click", () => {
+        const q = document.getElementById("nasaCitySearch").value;
+        if (q) geocodificarCidadeBrasil(q);
+      });
+      document.getElementById("btnFetchNasaLive").addEventListener("click", consultarNasaPowerAoVivo);
+    }
+
+    async function initApp() {
+      inicializarMapa();
+      montarSliders();
+      configurarEventosUI();
+
+      allFeatures = await carregarDadosEstacoes();
+      recalcularTodasEstacoes();
+      popularSelectsComparador();
+
+      if (allFeatures.length > 0) {
+        selecionarEstacao(allFeatures[0].properties.id, false);
+      }
+
+      if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+        navigator.serviceWorker.register("./sw.js").catch(() => {});
+      }
+    }
+
+    window.addEventListener("DOMContentLoaded", initApp);
+  </script>
+</body>
+</html>
