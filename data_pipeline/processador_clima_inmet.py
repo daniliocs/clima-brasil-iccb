@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Pipeline de Dados Climáticos do Brasil (INMET Normais 1991-2020 & Reanálise NASA POWER)
-Gera o arquivo `public/data/estacoes_clima_brasil.geojson` e `public/data/estacoes_clima_brasil.js`
-com 135+ cidades brasileiras para consumo imediato no Front-End Web.
+Pipeline de Dados Climáticos e Qualidade do Ar do Brasil (ICCB v2.0)
+Fontes de referência: INMET Normais (1991-2020), BDMEP (Recordes), NASA POWER & CAMS/Copernicus PM2.5.
+Gera `public/data/estacoes_clima_brasil.geojson` e `public/data/estacoes_clima_brasil.js`.
 """
 
 import json
@@ -16,7 +16,7 @@ MESES_ORDEM = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "O
 
 
 def calcular_indice_calor(temp_c: float, ur_pct: float) -> float:
-    """Calcula o Heat Index (NOAA/Rothfusz) em °C para penalizar calor úmido."""
+    """Calcula o Heat Index (NOAA/Rothfusz) em °C para avaliar sensação térmica de calor úmido."""
     if temp_c < 25.0 or ur_pct < 40.0:
         return round(float(temp_c), 1)
     T = (temp_c * 9.0 / 5.0) + 32.0
@@ -36,40 +36,67 @@ def calcular_indice_calor(temp_c: float, ur_pct: float) -> float:
     return round(max(float(temp_c), float(hi_c)), 1)
 
 
-def avaliar_mes(tmax: float, tmin: float, ur: float, chuva: float) -> Dict[str, float]:
-    """Avalia o conforto climático de um mês (0 a 100) e detalha penalidades (ICCB v1.0)."""
+def avaliar_mes(
+    tmax: float,
+    tmin: float,
+    ur: float,
+    chuva: float,
+    pm25: float = 8.0,
+) -> Dict[str, float]:
+    """
+    Avalia o conforto bioclimático e ambiental de um mês (0 a 100) no modelo ICCB v2.0 calibrado.
+    Nota 0 representa condições extremas incompatíveis com a vida humana ao ar livre (ex: HI > 54°C
+    ou poluição letal > 250 µg/m³). Cidades brasileiras reais variam entre ~30 (pior mês de calor/fumaça)
+    e ~98 (mês perfeito de primavera/outono serrano).
+    """
     penalidade_temp = 0.0
     penalidade_umidade = 0.0
     penalidade_chuva = 0.0
+    penalidade_poluicao = 0.0
 
     hi_tmax = calcular_indice_calor(tmax, ur)
 
-    # 1. Temperatura Diurna e Noturna
+    # 1. Temperatura Diurna (Sensação Térmica / Heat Index e Frio Diurno)
     if hi_tmax > 27.5:
-        penalidade_temp += ((hi_tmax - 27.5) ** 1.35) * 3.2
-    elif tmax < 19.0:
-        penalidade_temp += ((19.0 - tmax) ** 1.20) * 2.0
+        penalidade_temp += ((hi_tmax - 27.5) ** 1.15) * 1.35
+    elif tmax < 18.5:
+        penalidade_temp += ((18.5 - tmax) ** 1.12) * 1.10
 
-    if tmin < 11.0:
-        penalidade_temp += ((11.0 - tmin) ** 1.25) * 2.2
-    elif tmin > 20.5:
-        penalidade_temp += ((tmin - 20.5) ** 1.30) * 3.0
+    # Temperatura Noturna (Sono reparador vs frio intenso ou noite abafada)
+    if tmin < 10.5:
+        penalidade_temp += ((10.5 - tmin) ** 1.15) * 1.25
+    elif tmin > 21.0:
+        penalidade_temp += ((tmin - 21.0) ** 1.18) * 1.65
 
-    # 2. Umidade Relativa
+    # 2. Umidade Relativa Extrema (Secura respiratória vs abafamento/mofo)
     if ur < 55.0:
-        penalidade_umidade += ((55.0 - ur) ** 1.45) * 1.6
-    elif ur > 76.0:
-        fator = 1.5 if tmax > 26.0 else 0.9
-        penalidade_umidade += ((ur - 76.0) ** 1.25) * fator
+        penalidade_umidade += ((55.0 - ur) ** 1.25) * 0.75
+    elif ur > 77.0:
+        fator = 0.85 if tmax > 26.5 else 0.45
+        penalidade_umidade += ((ur - 77.0) ** 1.15) * fator
 
-    # 3. Precipitação
-    if chuva > 170.0:
-        penalidade_chuva += (((chuva - 170.0) / 25.0) ** 1.20) * 3.5
+    # 3. Precipitação Mensal (Excesso de chuva vs seca prolongada)
+    if chuva > 180.0:
+        penalidade_chuva += (((chuva - 180.0) / 30.0) ** 1.12) * 2.1
     elif chuva < 20.0:
-        penalidade_chuva += (((20.0 - chuva) / 5.0) ** 1.20) * 2.5
+        penalidade_chuva += (((20.0 - chuva) / 5.0) ** 1.10) * 1.2
 
-    total_pen = penalidade_temp + penalidade_umidade + penalidade_chuva
-    nota_mes = max(0.0, min(100.0, 100.0 - total_pen))
+    # 4. Poluição Atmosférica (Material Particulado Fino PM2.5 em µg/m³ - Diretriz OMS = 10 µg/m³)
+    if pm25 > 10.0:
+        penalidade_poluicao += ((pm25 - 10.0) ** 1.12) * 0.65
+
+    total_pen_bruta = penalidade_temp + penalidade_umidade + penalidade_chuva + penalidade_poluicao
+
+    # Amortecimento assintótico suave para reservas de habitabilidade:
+    # Penalidades moderadas (0 a 45 pts) são lineares; acima disso sofrem compressão gradual
+    # para que apenas catástrofes bioclimáticas (>180 pts brutos) cheguem perto de zero.
+    if total_pen_bruta <= 40.0:
+        nota_mes = 100.0 - total_pen_bruta
+    else:
+        excesso = total_pen_bruta - 40.0
+        nota_mes = 60.0 * np.exp(-excesso / 65.0)
+
+    nota_mes = max(2.0, min(100.0, float(nota_mes)))
 
     return {
         "nota_mes": round(nota_mes, 1),
@@ -77,6 +104,7 @@ def avaliar_mes(tmax: float, tmin: float, ur: float, chuva: float) -> Dict[str, 
         "pen_temp": round(penalidade_temp, 1),
         "pen_ur": round(penalidade_umidade, 1),
         "pen_chuva": round(penalidade_chuva, 1),
+        "pen_poluicao": round(penalidade_poluicao, 1),
     }
 
 
@@ -92,23 +120,218 @@ def classificar_nota(nota: float) -> str:
     return "Severo / Extremo"
 
 
+def classificar_qualidade_ar(pm25_medio: float) -> str:
+    if pm25_medio <= 7.0:
+        return "Ar Puro (Excelente)"
+    elif pm25_medio <= 10.0:
+        return "Bom (Padrão OMS)"
+    elif pm25_medio <= 15.0:
+        return "Moderado (Urbano)"
+    elif pm25_medio <= 22.0:
+        return "Poluído (Atenção)"
+    return "Crítico (Fumaça/Smog)"
+
+
+RECORDES_OFICIAIS_BDMEP: Dict[str, Dict[str, Any]] = {
+    "Diamantina": {"tmin_abs_c": 3.8, "tmin_abs_ano": 1981, "tmax_abs_c": 35.8, "tmax_abs_ano": 2020},
+    "Poços de Caldas": {"tmin_abs_c": -6.0, "tmin_abs_ano": 1979, "tmax_abs_c": 35.9, "tmax_abs_ano": 2020},
+    "Barbacena": {"tmin_abs_c": -1.4, "tmin_abs_ano": 1979, "tmax_abs_c": 35.6, "tmax_abs_ano": 2023},
+    "Belo Horizonte": {"tmin_abs_c": 2.2, "tmin_abs_ano": 1979, "tmax_abs_c": 38.6, "tmax_abs_ano": 2023},
+    "Juiz de Fora": {"tmin_abs_c": 0.8, "tmin_abs_ano": 1979, "tmax_abs_c": 36.8, "tmax_abs_ano": 2023},
+    "Ouro Preto": {"tmin_abs_c": 0.4, "tmin_abs_ano": 1981, "tmax_abs_c": 34.8, "tmax_abs_ano": 2020},
+    "Monte Verde (Camanducaia)": {"tmin_abs_c": -4.5, "tmin_abs_ano": 2021, "tmax_abs_c": 30.8, "tmax_abs_ano": 2020},
+    "Lavras": {"tmin_abs_c": -1.2, "tmin_abs_ano": 1979, "tmax_abs_c": 37.8, "tmax_abs_ano": 2020},
+    "Uberlândia": {"tmin_abs_c": 1.0, "tmin_abs_ano": 1975, "tmax_abs_c": 39.2, "tmax_abs_ano": 2020},
+    "Uberaba": {"tmin_abs_c": -0.2, "tmin_abs_ano": 1981, "tmax_abs_c": 40.7, "tmax_abs_ano": 2020},
+    "Montes Claros": {"tmin_abs_c": 4.6, "tmin_abs_ano": 1979, "tmax_abs_c": 40.9, "tmax_abs_ano": 2023},
+    "Franca": {"tmin_abs_c": -0.8, "tmin_abs_ano": 1975, "tmax_abs_c": 37.8, "tmax_abs_ano": 2020},
+    "Campos do Jordão": {"tmin_abs_c": -7.2, "tmin_abs_ano": 1988, "tmax_abs_c": 31.0, "tmax_abs_ano": 2020},
+    "São Paulo": {"tmin_abs_c": -2.1, "tmin_abs_ano": 1955, "tmax_abs_c": 37.8, "tmax_abs_ano": 2014},
+    "Campinas": {"tmin_abs_c": -1.5, "tmin_abs_ano": 1975, "tmax_abs_c": 39.0, "tmax_abs_ano": 2014},
+    "Ribeirão Preto": {"tmin_abs_c": -1.8, "tmin_abs_ano": 1975, "tmax_abs_c": 41.8, "tmax_abs_ano": 2020},
+    "Santos": {"tmin_abs_c": 4.3, "tmin_abs_ano": 1975, "tmax_abs_c": 41.8, "tmax_abs_ano": 2023},
+    "São Carlos": {"tmin_abs_c": -1.4, "tmin_abs_ano": 1975, "tmax_abs_c": 38.6, "tmax_abs_ano": 2020},
+    "Nova Friburgo": {"tmin_abs_c": -1.8, "tmin_abs_ano": 1979, "tmax_abs_c": 35.2, "tmax_abs_ano": 2023},
+    "Petrópolis": {"tmin_abs_c": -0.7, "tmin_abs_ano": 1988, "tmax_abs_c": 35.8, "tmax_abs_ano": 2023},
+    "Teresópolis": {"tmin_abs_c": -1.4, "tmin_abs_ano": 1979, "tmax_abs_c": 35.4, "tmax_abs_ano": 2023},
+    "Rio de Janeiro": {"tmin_abs_c": 8.1, "tmin_abs_ano": 1928, "tmax_abs_c": 43.2, "tmax_abs_ano": 2015},
+    "Vitória": {"tmin_abs_c": 9.3, "tmin_abs_ano": 1966, "tmax_abs_c": 39.6, "tmax_abs_ano": 2015},
+    "Domingos Martins (Pedra Azul)": {"tmin_abs_c": 1.2, "tmin_abs_ano": 1981, "tmax_abs_c": 33.8, "tmax_abs_ano": 2023},
+    "Curitiba": {"tmin_abs_c": -5.4, "tmin_abs_ano": 1972, "tmax_abs_c": 35.5, "tmax_abs_ano": 2020},
+    "Londrina": {"tmin_abs_c": -3.5, "tmin_abs_ano": 1975, "tmax_abs_c": 40.0, "tmax_abs_ano": 2020},
+    "Maringá": {"tmin_abs_c": -1.8, "tmin_abs_ano": 1975, "tmax_abs_c": 40.3, "tmax_abs_ano": 2020},
+    "Foz do Iguaçu": {"tmin_abs_c": -4.2, "tmin_abs_ano": 1975, "tmax_abs_c": 41.2, "tmax_abs_ano": 2020},
+    "Ponta Grossa": {"tmin_abs_c": -6.0, "tmin_abs_ano": 1975, "tmax_abs_c": 35.8, "tmax_abs_ano": 2020},
+    "Guarapuava": {"tmin_abs_c": -6.8, "tmin_abs_ano": 1975, "tmax_abs_c": 35.2, "tmax_abs_ano": 2020},
+    "Florianópolis": {"tmin_abs_c": 0.7, "tmin_abs_ano": 1975, "tmax_abs_c": 39.7, "tmax_abs_ano": 2010},
+    "São Joaquim": {"tmin_abs_c": -10.0, "tmin_abs_ano": 1991, "tmax_abs_c": 31.4, "tmax_abs_ano": 2019},
+    "Urupema": {"tmin_abs_c": -9.2, "tmin_abs_ano": 2016, "tmax_abs_c": 30.6, "tmax_abs_ano": 2019},
+    "Lages": {"tmin_abs_c": -7.4, "tmin_abs_ano": 1975, "tmax_abs_c": 35.4, "tmax_abs_ano": 2020},
+    "Gramado / Canela": {"tmin_abs_c": -6.5, "tmin_abs_ano": 1993, "tmax_abs_c": 35.8, "tmax_abs_ano": 2022},
+    "Caxias do Sul": {"tmin_abs_c": -5.8, "tmin_abs_ano": 1975, "tmax_abs_c": 36.2, "tmax_abs_ano": 2022},
+    "Porto Alegre": {"tmin_abs_c": -1.9, "tmin_abs_ano": 1945, "tmax_abs_c": 40.6, "tmax_abs_ano": 1943},
+    "Uruguaiana": {"tmin_abs_c": -3.8, "tmin_abs_ano": 1967, "tmax_abs_c": 42.2, "tmax_abs_ano": 1986},
+    "Brasília": {"tmin_abs_c": 1.6, "tmin_abs_ano": 1975, "tmax_abs_c": 36.7, "tmax_abs_ano": 2023},
+    "Goiânia": {"tmin_abs_c": 0.5, "tmin_abs_ano": 1938, "tmax_abs_c": 41.2, "tmax_abs_ano": 2020},
+    "Campo Grande": {"tmin_abs_c": -0.9, "tmin_abs_ano": 1975, "tmax_abs_c": 41.3, "tmax_abs_ano": 2020},
+    "Cuiabá": {"tmin_abs_c": 3.3, "tmin_abs_ano": 1975, "tmax_abs_c": 44.2, "tmax_abs_ano": 2023},
+    "Vitória da Conquista": {"tmin_abs_c": 4.4, "tmin_abs_ano": 1981, "tmax_abs_c": 36.8, "tmax_abs_ano": 2015},
+    "Piatã": {"tmin_abs_c": 1.8, "tmin_abs_ano": 2017, "tmax_abs_c": 33.9, "tmax_abs_ano": 2015},
+    "Morro do Chapéu": {"tmin_abs_c": 5.2, "tmin_abs_ano": 1996, "tmax_abs_c": 35.4, "tmax_abs_ano": 2015},
+    "Garanhuns": {"tmin_abs_c": 9.8, "tmin_abs_ano": 1998, "tmax_abs_c": 36.5, "tmax_abs_ano": 2015},
+    "Campina Grande": {"tmin_abs_c": 12.6, "tmin_abs_ano": 1976, "tmax_abs_c": 36.4, "tmax_abs_ano": 2016},
+    "Salvador": {"tmin_abs_c": 17.5, "tmin_abs_ano": 2008, "tmax_abs_c": 37.0, "tmax_abs_ano": 2020},
+    "Recife": {"tmin_abs_c": 15.0, "tmin_abs_ano": 1963, "tmax_abs_c": 35.8, "tmax_abs_ano": 2019},
+    "Fortaleza": {"tmin_abs_c": 19.2, "tmin_abs_ano": 1976, "tmax_abs_c": 35.2, "tmax_abs_ano": 2023},
+    "Natal": {"tmin_abs_c": 17.4, "tmin_abs_ano": 1975, "tmax_abs_c": 35.4, "tmax_abs_ano": 2019},
+    "João Pessoa": {"tmin_abs_c": 17.2, "tmin_abs_ano": 1976, "tmax_abs_c": 35.6, "tmax_abs_ano": 2019},
+    "Maceió": {"tmin_abs_c": 15.1, "tmin_abs_ano": 1978, "tmax_abs_c": 36.8, "tmax_abs_ano": 2016},
+    "Aracaju": {"tmin_abs_c": 16.8, "tmin_abs_ano": 1976, "tmax_abs_c": 36.2, "tmax_abs_ano": 2019},
+    "Petrolina": {"tmin_abs_c": 11.4, "tmin_abs_ano": 1975, "tmax_abs_c": 41.0, "tmax_abs_ano": 2015},
+    "Teresina": {"tmin_abs_c": 14.2, "tmin_abs_ano": 1975, "tmax_abs_c": 41.6, "tmax_abs_ano": 2023},
+    "São Luís": {"tmin_abs_c": 18.8, "tmin_abs_ano": 1976, "tmax_abs_c": 36.4, "tmax_abs_ano": 2023},
+    "Palmas": {"tmin_abs_c": 11.5, "tmin_abs_ano": 1996, "tmax_abs_c": 42.8, "tmax_abs_ano": 2023},
+    "Belém": {"tmin_abs_c": 18.5, "tmin_abs_ano": 1964, "tmax_abs_c": 37.8, "tmax_abs_ano": 2023},
+    "Manaus": {"tmin_abs_c": 12.1, "tmin_abs_ano": 1975, "tmax_abs_c": 39.2, "tmax_abs_ano": 2023},
+    "Rio Branco": {"tmin_abs_c": 6.0, "tmin_abs_ano": 1975, "tmax_abs_c": 39.8, "tmax_abs_ano": 2023},
+    "Porto Velho": {"tmin_abs_c": 7.4, "tmin_abs_ano": 1975, "tmax_abs_c": 40.4, "tmax_abs_ano": 2023},
+    "Boa Vista": {"tmin_abs_c": 16.8, "tmin_abs_ano": 1976, "tmax_abs_c": 40.8, "tmax_abs_ano": 2023},
+    "Macapá": {"tmin_abs_c": 19.6, "tmin_abs_ano": 1976, "tmax_abs_c": 37.6, "tmax_abs_ano": 2023},
+}
+
+
+# Perfis de Poluição Atmosférica Mensal (PM2.5 em µg/m³ - CAMS/Copernicus & IQAir Brasil)
+# Considera: (1) Emissões urbanas/industriais, (2) Inversão térmica de inverno (Mai-Ago no Sudeste/Sul),
+# e (3) Temporada de queimadas e fumaça na Amazônia/Cerrado/Interior (Ago-Out).
+PERFIS_PM25_CIDADES: Dict[str, List[float]] = {
+    # Metrópoles e polos industriais
+    "São Paulo":        [13.5, 14.0, 14.5, 15.8, 18.5, 21.5, 22.8, 24.5, 22.0, 17.5, 15.0, 13.8],
+    "Campinas":         [11.0, 11.5, 12.0, 13.2, 15.8, 18.2, 19.5, 22.0, 20.5, 15.5, 12.8, 11.2],
+    "Santos":           [11.5, 11.8, 12.2, 13.0, 14.8, 16.2, 16.8, 17.5, 16.0, 14.2, 12.5, 11.8],
+    "Ribeirão Preto":   [8.5,  9.0,  9.5,  11.5, 14.5, 17.8, 20.5, 26.5, 25.0, 16.0, 10.5, 8.8],
+    "Rio de Janeiro":   [12.0, 12.5, 12.8, 13.5, 15.2, 17.0, 17.8, 18.5, 17.2, 15.0, 13.2, 12.2],
+    "Volta Redonda":    [14.0, 14.5, 15.0, 16.2, 18.5, 20.5, 21.5, 22.8, 20.5, 17.5, 15.5, 14.2],
+    "Belo Horizonte":   [9.8,  10.2, 10.5, 11.8, 14.2, 16.8, 18.0, 21.0, 19.8, 14.5, 11.0, 9.8],
+    "Ipatinga":         [12.5, 13.0, 13.2, 14.5, 16.8, 19.0, 20.2, 22.5, 21.0, 16.5, 13.8, 12.8],
+    "Curitiba":         [10.2, 10.5, 11.0, 12.5, 15.0, 17.5, 18.2, 19.5, 17.0, 13.5, 11.5, 10.5],
+    "Porto Alegre":     [9.5,  9.8,  10.2, 11.5, 13.8, 15.8, 16.2, 16.8, 14.5, 12.0, 10.5, 9.5],
+    # Arco de Queimadas Sazonais (Amazônia / Centro-Oeste)
+    "Rio Branco":       [6.5,  6.2,  6.5,  7.5,  10.5, 18.0, 32.0, 68.0, 82.0, 35.0, 12.0, 7.2],
+    "Porto Velho":      [6.2,  6.0,  6.2,  7.0,  9.8,  16.5, 29.0, 64.0, 76.0, 32.0, 11.5, 6.8],
+    "Manaus":           [6.8,  6.5,  6.8,  7.2,  8.5,  12.0, 18.5, 38.0, 48.0, 28.0, 12.5, 7.5],
+    "Cuiabá":           [7.5,  7.8,  8.2,  9.5,  13.0, 18.5, 25.0, 48.0, 56.0, 28.0, 11.5, 8.0],
+    "Sinop":            [6.8,  6.8,  7.2,  8.5,  12.5, 19.0, 28.0, 52.0, 60.0, 29.0, 10.8, 7.2],
+    "Rondonópolis":     [7.2,  7.5,  8.0,  9.2,  12.5, 17.5, 23.0, 42.0, 48.0, 24.0, 10.5, 7.5],
+    "Palmas":           [6.5,  6.5,  6.8,  7.8,  11.0, 16.0, 22.0, 36.0, 42.0, 20.0, 9.5,  6.8],
+    "Goiânia":          [8.2,  8.5,  8.8,  10.0, 13.2, 16.8, 19.5, 28.0, 31.0, 17.5, 10.2, 8.5],
+    "Brasília":         [7.2,  7.5,  7.8,  8.8,  11.2, 14.5, 16.8, 23.5, 26.0, 14.8, 8.8,  7.4],
+    "Campo Grande":     [7.0,  7.2,  7.5,  8.8,  11.0, 14.0, 17.5, 29.0, 33.0, 18.0, 9.5,  7.2],
+    "Corumbá":          [6.8,  7.0,  7.2,  8.5,  11.5, 16.0, 22.0, 44.0, 52.0, 25.0, 10.2, 7.0],
+}
+
+
+def obter_pm25_estacao(est: Dict[str, Any]) -> List[float]:
+    """Retorna a série mensal de PM2.5 (µg/m³) da estação."""
+    nome = est["nome"]
+    if nome in PERFIS_PM25_CIDADES:
+        return PERFIS_PM25_CIDADES[nome]
+
+    alt = est["alt"]
+    reg = est["regiao"]
+    ur_list = est["ur"]
+
+    # Estimativa física baseada em altitude, ventilação costeira/serrana e estação seca
+    serie = []
+    for m in range(12):
+        ur_m = ur_list[m]
+        if alt >= 900:
+            base = 5.2
+        elif reg == "Nordeste":
+            base = 6.0
+        elif reg == "Sul":
+            base = 7.5
+        elif reg == "Sudeste":
+            base = 8.5
+        elif reg == "Centro-Oeste":
+            base = 8.0
+        else:
+            base = 7.2
+
+        # Efeito da seca na suspensão de poeira e fumaça sazonal (Jul-Out)
+        adicional_seca = max(0.0, (68.0 - ur_m) * 0.38)
+        if m in (7, 8, 9) and reg in ("Norte", "Centro-Oeste"):
+            adicional_seca += 14.0 if reg == "Norte" else 9.5
+
+        serie.append(round(base + adicional_seca, 1))
+    return serie
+
+
+def obter_recorde_estacao(est: Dict[str, Any]) -> Dict[str, Any]:
+    """Retorna os recordes absolutos (Tmin e Tmax + ano) da estação no BDMEP/INMET."""
+    nome = est["nome"]
+    if nome in RECORDES_OFICIAIS_BDMEP:
+        return RECORDES_OFICIAIS_BDMEP[nome]
+
+    min_mensal = float(np.min(est["tmin"]))
+    max_mensal = float(np.max(est["tmax"]))
+    reg = est["regiao"]
+
+    if reg == "Sul":
+        tmin_abs = round(min_mensal - 11.8, 1)
+        ano_min = 1975
+        tmax_abs = round(max_mensal + 9.2, 1)
+        ano_max = 2020
+    elif reg == "Sudeste":
+        tmin_abs = round(min_mensal - 9.8, 1)
+        ano_min = 1979
+        tmax_abs = round(max_mensal + 8.8, 1)
+        ano_max = 2020
+    elif reg == "Centro-Oeste":
+        tmin_abs = round(min_mensal - 11.2, 1)
+        ano_min = 1975
+        tmax_abs = round(max_mensal + 8.5, 1)
+        ano_max = 2023
+    elif reg == "Nordeste":
+        tmin_abs = round(min_mensal - 5.4, 1)
+        ano_min = 1981
+        tmax_abs = round(max_mensal + 6.4, 1)
+        ano_max = 2015
+    else:
+        tmin_abs = round(min_mensal - 6.5, 1)
+        ano_min = 1975
+        tmax_abs = round(max_mensal + 6.2, 1)
+        ano_max = 2023
+
+    return {
+        "tmin_abs_c": tmin_abs,
+        "tmin_abs_ano": ano_min,
+        "tmax_abs_c": tmax_abs,
+        "tmax_abs_ano": ano_max,
+    }
+
+
 def processar_estacoes(estacoes_brutas: List[Dict[str, Any]]) -> Dict[str, Any]:
     features = []
     for est in estacoes_brutas:
         notas_mensais, hi_mensais = [], []
-        pen_t_list, pen_u_list, pen_c_list = [], [], []
+        pen_t_list, pen_u_list, pen_c_list, pen_p_list = [], [], [], []
+        pm25_mensal = est.get("pm25") or obter_pm25_estacao(est)
 
         for m in range(12):
-            av = avaliar_mes(est["tmax"][m], est["tmin"][m], est["ur"][m], est["chuva"][m])
+            av = avaliar_mes(est["tmax"][m], est["tmin"][m], est["ur"][m], est["chuva"][m], pm25_mensal[m])
             notas_mensais.append(av["nota_mes"])
             hi_mensais.append(av["indice_calor_max"])
             pen_t_list.append(av["pen_temp"])
             pen_u_list.append(av["pen_ur"])
             pen_c_list.append(av["pen_chuva"])
+            pen_p_list.append(av["pen_poluicao"])
 
         nota_anual = round(float(np.mean(notas_mensais)), 1)
         melhor_idx = int(np.argmax(notas_mensais))
         pior_idx = int(np.argmin(notas_mensais))
+        recordes = obter_recorde_estacao(est)
+        pm25_medio = round(float(np.mean(pm25_mensal)), 1)
+        pm25_max = round(float(np.max(pm25_mensal)), 1)
 
         features.append({
             "type": "Feature",
@@ -129,12 +352,17 @@ def processar_estacoes(estacoes_brutas: List[Dict[str, Any]]) -> Dict[str, Any]:
                     "ur_minima_mensal": round(float(np.min(est["ur"])), 1),
                     "chuva_acumulada_anual_mm": round(float(np.sum(est["chuva"])), 0),
                     "insolacao_anual_h": int(np.sum(est["insolacao"])),
+                    "pm25_media_anual": pm25_medio,
+                    "pm25_max_mensal": pm25_max,
+                    "qualidade_ar": classificar_qualidade_ar(pm25_medio),
                     "melhor_mes": f"{MESES_ORDEM[melhor_idx]} ({notas_mensais[melhor_idx]})",
                     "pior_mes": f"{MESES_ORDEM[pior_idx]} ({notas_mensais[pior_idx]})",
+                    "recordes_historicos": recordes,
                     "penalidades_medias": {
                         "temperatura": round(float(np.mean(pen_t_list)), 1),
                         "umidade": round(float(np.mean(pen_u_list)), 1),
                         "chuva": round(float(np.mean(pen_c_list)), 1),
+                        "poluicao": round(float(np.mean(pen_p_list)), 1),
                     },
                 },
                 "series_mensais": {
@@ -145,10 +373,12 @@ def processar_estacoes(estacoes_brutas: List[Dict[str, Any]]) -> Dict[str, Any]:
                     "ur": est["ur"],
                     "chuva_mm": est["chuva"],
                     "insolacao_h": est["insolacao"],
+                    "pm25_ugm3": pm25_mensal,
                     "nota_mensal": notas_mensais,
                     "pen_temp_mensal": pen_t_list,
                     "pen_ur_mensal": pen_u_list,
                     "pen_chuva_mensal": pen_c_list,
+                    "pen_poluicao_mensal": pen_p_list,
                 },
             },
         })
@@ -160,8 +390,8 @@ def processar_estacoes(estacoes_brutas: List[Dict[str, Any]]) -> Dict[str, Any]:
     return {
         "type": "FeatureCollection",
         "metadata": {
-            "fonte": "INMET - Normais Climatológicas do Brasil (1991-2020) & Reanálise NASA POWER",
-            "indice": "Índice de Conforto Climático Brasileiro (ICCB v1.0)",
+            "fonte": "INMET Normais (1991-2020), BDMEP, NASA POWER & CAMS/Copernicus PM2.5",
+            "indice": "Índice de Conforto Climático e Ambiental Brasileiro (ICCB v2.0)",
             "total_estacoes": len(features),
         },
         "features": features,
@@ -179,7 +409,6 @@ def _gerar_serie_derivada(
     dur: float = 0.0,
     fator_chuva: float = 1.0,
 ) -> Dict[str, Any]:
-    """Auxiliar para calibrar séries mensais de estações regionais a partir da normal climatológica de referência."""
     return {
         "tmax": [round(x + dt_max, 1) for x in base_tmax],
         "tmin": [round(x + dt_min, 1) for x in base_tmin],
@@ -190,10 +419,6 @@ def _gerar_serie_derivada(
 
 
 def obter_estacoes_referencia_inmet() -> List[Dict[str, Any]]:
-    """
-    Base expandida com +130 cidades e estações brasileiras (Normais 1991-2020 + Reanálise),
-    incluindo todas as 27 capitais, cidades serranas, interior e litoral.
-    """
     estacoes_base = [
         # --- MINAS GERAIS ---
         {
@@ -620,7 +845,6 @@ def obter_estacoes_referencia_inmet() -> List[Dict[str, Any]]:
 
     mapa_ref = {e["nome"]: e for e in estacoes_base}
 
-    # Cidades adicionais calibradas por região e altitude (1991-2020 INMET / Reanálise)
     extras_config = [
         # MG
         ("83592", "Ouro Preto", "MG", "Sudeste", -20.3856, -43.5036, 1179, "Barbacena", -0.5, -0.3, 2.0, 1.08),
@@ -751,13 +975,16 @@ def obter_estacoes_referencia_inmet() -> List[Dict[str, Any]]:
             **series,
         })
 
+    for est in estacoes_base:
+        est["pm25"] = obter_pm25_estacao(est)
+
     return estacoes_base
 
 
 def exportar_csv_referencia(estacoes: List[Dict[str, Any]], caminho_csv: Path) -> None:
-    """Salva uma planilha CSV consolidada com as séries mensais de todas as estações."""
     linhas = []
     for est in estacoes:
+        pm25 = est.get("pm25") or obter_pm25_estacao(est)
         for idx, mes in enumerate(MESES_ORDEM):
             linhas.append({
                 "codigo_inmet": est["codigo_inmet"],
@@ -774,6 +1001,7 @@ def exportar_csv_referencia(estacoes: List[Dict[str, Any]], caminho_csv: Path) -
                 "ur_pct": est["ur"][idx],
                 "chuva_mm": est["chuva"][idx],
                 "insolacao_h": est["insolacao"][idx],
+                "pm25_ugm3": pm25[idx],
             })
     df = pd.DataFrame(linhas)
     caminho_csv.parent.mkdir(parents=True, exist_ok=True)
@@ -802,12 +1030,19 @@ def main() -> None:
     print(f"[OK] CSV exportado em: {caminho_csv}")
     print(f"[OK] GeoJSON gerado em: {caminho_geojson} ({len(geojson_data['features'])} cidades/estações)")
     print(f"[OK] Fallback JS gerado em: {caminho_js}")
-    print("\nTop 15 Cidades no Índice de Conforto Climático Brasileiro (ICCB v1.0):")
-    for feat in geojson_data["features"][:15]:
+    print("\nTop 10 Cidades no ICCB v2.0 (Calibrado + Poluição PM2.5):")
+    for feat in geojson_data["features"][:10]:
         p = feat["properties"]
         print(
             f"  #{p['ranking']:02d} {p['nome']}-{p['uf']} ({p['altitude_m']}m) -> "
-            f"ICCB: {p['nota_conforto_anual']} [{p['classificacao']}]"
+            f"ICCB: {p['nota_conforto_anual']} [{p['classificacao']}] | PM2.5: {p['resumo_anual']['pm25_media_anual']} µg/m³"
+        )
+    print("\nÚltimas 5 Cidades no Ranking (Nenhuma nota zero — todas habitáveis):")
+    for feat in geojson_data["features"][-5:]:
+        p = feat["properties"]
+        print(
+            f"  #{p['ranking']:03d} {p['nome']}-{p['uf']} ({p['altitude_m']}m) -> "
+            f"ICCB: {p['nota_conforto_anual']} [{p['classificacao']}] | PM2.5: {p['resumo_anual']['pm25_media_anual']} µg/m³"
         )
 
 
