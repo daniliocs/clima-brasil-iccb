@@ -44,67 +44,77 @@ def avaliar_mes(
     pm25: float = 8.0,
 ) -> Dict[str, float]:
     """
-    Avalia o conforto bioclimático e ambiental de um mês (0 a 100) no modelo ICCB v2.0 calibrado.
+    Avalia o conforto bioclimático e ambiental de um mês (0 a 100) no modelo ICCB v2.1 calibrado.
+    Equação 100% espelhada com `avaliarMes()` no frontend (`public/index.html`).
     Nota 0 representa condições extremas incompatíveis com a vida humana ao ar livre (ex: HI > 54°C
     ou poluição letal > 250 µg/m³). Cidades brasileiras reais variam entre ~30 (pior mês de calor/fumaça)
-    e ~98 (mês perfeito de primavera/outono serrano).
+    e ~99 (mês perfeito de primavera/outono serrano).
     """
-    penalidade_temp = 0.0
-    penalidade_umidade = 0.0
-    penalidade_chuva = 0.0
-    penalidade_poluicao = 0.0
+    pen_temp = 0.0
+    pen_ur = 0.0
+    pen_chuva = 0.0
+    pen_poluicao = 0.0
 
     hi_tmax = calcular_indice_calor(tmax, ur)
 
+    # Limites padrão ICCB v2.1 (idênticos ao DEFAULT_PARAMS do frontend)
+    hi_max_limit = 27.5
+    tmax_min_limit = 18.5
+    tmin_low_limit = 10.5
+    tmin_high_limit = 21.0
+    ur_min_limit = 55.0
+    ur_max_limit = 77.0
+    rain_max_limit = 180.0
+    rain_min_limit = 20.0
+    pm25_max_limit = 10.0
+
     # 1. Temperatura Diurna (Sensação Térmica / Heat Index e Frio Diurno)
-    if hi_tmax > 27.5:
-        penalidade_temp += ((hi_tmax - 27.5) ** 1.15) * 1.35
-    elif tmax < 18.5:
-        penalidade_temp += ((18.5 - tmax) ** 1.12) * 1.10
+    if hi_tmax > hi_max_limit:
+        pen_temp += ((hi_tmax - hi_max_limit) ** 1.15) * 1.35
+    elif tmax < tmax_min_limit:
+        pen_temp += ((tmax_min_limit - tmax) ** 1.12) * 1.10
 
     # Temperatura Noturna (Sono reparador vs frio intenso ou noite abafada)
-    if tmin < 10.5:
-        penalidade_temp += ((10.5 - tmin) ** 1.15) * 1.25
-    elif tmin > 21.0:
-        penalidade_temp += ((tmin - 21.0) ** 1.18) * 1.65
+    if tmin < tmin_low_limit:
+        pen_temp += ((tmin_low_limit - tmin) ** 1.15) * 1.25
+    elif tmin > tmin_high_limit:
+        pen_temp += ((tmin - tmin_high_limit) ** 1.18) * 1.65
 
     # 2. Umidade Relativa Extrema (Secura respiratória vs abafamento/mofo)
-    if ur < 55.0:
-        penalidade_umidade += ((55.0 - ur) ** 1.25) * 0.75
-    elif ur > 77.0:
+    if ur < ur_min_limit:
+        pen_ur += ((ur_min_limit - ur) ** 1.25) * 0.75
+    elif ur > ur_max_limit:
         fator = 0.85 if tmax > 26.5 else 0.45
-        penalidade_umidade += ((ur - 77.0) ** 1.15) * fator
+        pen_ur += ((ur - ur_max_limit) ** 1.15) * fator
 
     # 3. Precipitação Mensal (Excesso de chuva vs seca prolongada)
-    if chuva > 180.0:
-        penalidade_chuva += (((chuva - 180.0) / 30.0) ** 1.12) * 2.1
-    elif chuva < 20.0:
-        penalidade_chuva += (((20.0 - chuva) / 5.0) ** 1.10) * 1.2
+    if chuva > rain_max_limit:
+        pen_chuva += (((chuva - rain_max_limit) / 30.0) ** 1.12) * 2.10
+    elif chuva < rain_min_limit:
+        pen_chuva += (((rain_min_limit - chuva) / 5.0) ** 1.10) * 1.20
 
     # 4. Poluição Atmosférica (Material Particulado Fino PM2.5 em µg/m³ - Diretriz OMS = 10 µg/m³)
-    if pm25 > 10.0:
-        penalidade_poluicao += ((pm25 - 10.0) ** 1.12) * 0.65
+    if pm25 > pm25_max_limit:
+        pen_poluicao += ((pm25 - pm25_max_limit) ** 1.12) * 0.65
 
-    total_pen_bruta = penalidade_temp + penalidade_umidade + penalidade_chuva + penalidade_poluicao
+    total_pen_bruta = pen_temp + pen_ur + pen_chuva + pen_poluicao
 
     # Amortecimento assintótico suave para reservas de habitabilidade:
-    # Penalidades moderadas (0 a 45 pts) são lineares; acima disso sofrem compressão gradual
-    # para que apenas catástrofes bioclimáticas (>180 pts brutos) cheguem perto de zero.
     if total_pen_bruta <= 40.0:
         nota_mes = 100.0 - total_pen_bruta
     else:
         excesso = total_pen_bruta - 40.0
-        nota_mes = 60.0 * np.exp(-excesso / 65.0)
+        nota_mes = 60.0 * float(np.exp(-excesso / 65.0))
 
     nota_mes = max(2.0, min(100.0, float(nota_mes)))
 
     return {
         "nota_mes": round(nota_mes, 1),
         "indice_calor_max": hi_tmax,
-        "pen_temp": round(penalidade_temp, 1),
-        "pen_ur": round(penalidade_umidade, 1),
-        "pen_chuva": round(penalidade_chuva, 1),
-        "pen_poluicao": round(penalidade_poluicao, 1),
+        "pen_temp": round(pen_temp, 1),
+        "pen_ur": round(pen_ur, 1),
+        "pen_chuva": round(pen_chuva, 1),
+        "pen_poluicao": round(pen_poluicao, 1),
     }
 
 
@@ -117,19 +127,21 @@ def classificar_nota(nota: float) -> str:
         return "Bom"
     elif nota >= 52.0:
         return "Regular"
-    return "Severo / Extremo"
+    elif nota >= 35.0:
+        return "Severo / Extremo"
+    return "Hostil / Crítico"
 
 
-def classificar_qualidade_ar(pm25_medio: float) -> str:
-    if pm25_medio <= 7.0:
-        return "Ar Puro (Excelente)"
-    elif pm25_medio <= 10.0:
-        return "Bom (Padrão OMS)"
-    elif pm25_medio <= 15.0:
-        return "Moderado (Urbano)"
-    elif pm25_medio <= 22.0:
+def classificar_qualidade_ar(pm25_medio: float, pm25_max: float = 0.0) -> str:
+    if pm25_max >= 45.0 or pm25_medio >= 20.0:
+        return "Crítico (Fumaça/Smog)"
+    elif pm25_max >= 25.0 or pm25_medio >= 14.0:
         return "Poluído (Atenção)"
-    return "Crítico (Fumaça/Smog)"
+    elif pm25_medio >= 10.0:
+        return "Moderado (Urbano)"
+    elif pm25_medio >= 7.0:
+        return "Bom (Padrão OMS)"
+    return "Ar Puro (Excelente)"
 
 
 RECORDES_OFICIAIS_BDMEP: Dict[str, Dict[str, Any]] = {
@@ -329,7 +341,7 @@ def processar_estacoes(estacoes_brutas: List[Dict[str, Any]]) -> Dict[str, Any]:
         nota_anual = round(float(np.mean(notas_mensais)), 1)
         melhor_idx = int(np.argmax(notas_mensais))
         pior_idx = int(np.argmin(notas_mensais))
-        recordes = obter_recorde_estacao(est)
+        recordes = est.get("recordes_oficiais_xlsx") or obter_recorde_estacao(est)
         pm25_medio = round(float(np.mean(pm25_mensal)), 1)
         pm25_max = round(float(np.max(pm25_mensal)), 1)
 
@@ -342,6 +354,7 @@ def processar_estacoes(estacoes_brutas: List[Dict[str, Any]]) -> Dict[str, Any]:
                 "uf": est["uf"],
                 "regiao": est["regiao"],
                 "altitude_m": est["alt"],
+                "fonte_dados": est.get("fonte_dados", "INMET 1991–2020 (Oficial)"),
                 "nota_conforto_anual": nota_anual,
                 "classificacao": classificar_nota(nota_anual),
                 "resumo_anual": {
@@ -354,9 +367,9 @@ def processar_estacoes(estacoes_brutas: List[Dict[str, Any]]) -> Dict[str, Any]:
                     "insolacao_anual_h": int(np.sum(est["insolacao"])),
                     "pm25_media_anual": pm25_medio,
                     "pm25_max_mensal": pm25_max,
-                    "qualidade_ar": classificar_qualidade_ar(pm25_medio),
-                    "melhor_mes": f"{MESES_ORDEM[melhor_idx]} ({notas_mensais[melhor_idx]})",
-                    "pior_mes": f"{MESES_ORDEM[pior_idx]} ({notas_mensais[pior_idx]})",
+                    "qualidade_ar": classificar_qualidade_ar(pm25_medio, pm25_max),
+                    "melhor_mes": f"{MESES_ORDEM[melhor_idx]} ({notas_mensais[melhor_idx]:.1f})",
+                    "pior_mes": f"{MESES_ORDEM[pior_idx]} ({notas_mensais[pior_idx]:.1f})",
                     "recordes_historicos": recordes,
                     "penalidades_medias": {
                         "temperatura": round(float(np.mean(pen_t_list)), 1),
@@ -390,8 +403,8 @@ def processar_estacoes(estacoes_brutas: List[Dict[str, Any]]) -> Dict[str, Any]:
     return {
         "type": "FeatureCollection",
         "metadata": {
-            "fonte": "INMET Normais (1991-2020), BDMEP, NASA POWER & CAMS/Copernicus PM2.5",
-            "indice": "Índice de Conforto Climático e Ambiental Brasileiro (ICCB v2.0)",
+            "fonte": "INMET Normais Oficiais (1991-2020), BDMEP, NASA POWER & CAMS/Copernicus PM2.5",
+            "indice": "Índice de Conforto Climático e Ambiental Brasileiro (ICCB v2.1)",
             "total_estacoes": len(features),
         },
         "features": features,
@@ -958,6 +971,9 @@ def obter_estacoes_referencia_inmet() -> List[Dict[str, Any]]:
         ("A938", "Vilhena", "RO", "Norte", -12.7406, -60.1458, 615, "Campo Grande", -0.2, 0.6, 6.0, 1.32),
     ]
 
+    for est in estacoes_base:
+        est["fonte_dados"] = "INMET 1991–2020 (Estação Oficial)"
+
     for cod, nome, uf, reg, lat, lon, alt, ref_nome, dt_max, dt_min, dur, f_chuva in extras_config:
         ref = mapa_ref[ref_nome]
         series = _gerar_serie_derivada(
@@ -972,8 +988,35 @@ def obter_estacoes_referencia_inmet() -> List[Dict[str, Any]]:
             "lat": lat,
             "lon": lon,
             "alt": alt,
+            "fonte_dados": "Modelagem Topoclimática Regional (INMET/Reanálise)",
             **series,
         })
+
+    # Integrar dados oficiais diretamente das planilhas das Normais Climatológicas INMET (1991-2020)
+    caminho_inmet_json = Path(__file__).resolve().parent / "raw_inmet" / "inmet_oficial_1991_2020.json"
+    if caminho_inmet_json.exists():
+        import unicodedata
+        inmet_oficial = json.loads(caminho_inmet_json.read_text(encoding="utf-8"))
+
+        def _norm(txt: str) -> str:
+            return "".join(
+                c for c in unicodedata.normalize("NFD", str(txt or ""))
+                if unicodedata.category(c) != "Mn"
+            ).upper().strip()
+
+        for est in estacoes_base:
+            nome_limpo = _norm(est["nome"].split("(")[0].split("/")[0])
+            chave = f"{nome_limpo}|{_norm(est['uf'])}"
+            if chave in inmet_oficial:
+                dados_of = inmet_oficial[chave]
+                est["codigo_inmet"] = dados_of["codigo_inmet"]
+                est["tmax"] = dados_of["tmax"]
+                est["tmin"] = dados_of["tmin"]
+                est["ur"] = dados_of["ur"]
+                est["chuva"] = dados_of["chuva"]
+                est["fonte_dados"] = "INMET 1991–2020 (Planilha Oficial)"
+                if dados_of.get("recordes") and est["nome"] not in RECORDES_OFICIAIS_BDMEP:
+                    est["recordes_oficiais_xlsx"] = dados_of["recordes"]
 
     for est in estacoes_base:
         est["pm25"] = obter_pm25_estacao(est)

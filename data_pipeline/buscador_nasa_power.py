@@ -17,12 +17,13 @@ from processador_clima_inmet import avaliar_mes, classificar_nota, MESES_ORDEM
 def buscar_clima_municipio_nasa(lat: float, lon: float) -> Dict[str, Any]:
     """
     Consulta a API gratuita NASA POWER Climatology para obter médias mensais
-    de Temperatura Máxima (T2M_MAX), Mínima (T2M_MIN), Umidade Relativa (RH2M),
+    de Temperatura Média (T2M), Amplitude Térmica Diária Média (T2M_RANGE),
+    Extremos Absolutos (T2M_MAX, T2M_MIN), Umidade Relativa (RH2M),
     Precipitação (PRECTOTCORR) e Insolação estimada para qualquer coordenada do Brasil.
     """
     url = (
         "https://power.larc.nasa.gov/api/temporal/climatology/point"
-        f"?parameters=T2M_MAX,T2M_MIN,RH2M,PRECTOTCORR,ALLSKY_SFC_SW_DWN"
+        f"?parameters=T2M,T2M_RANGE,T2M_MAX,T2M_MIN,RH2M,PRECTOTCORR,ALLSKY_SFC_SW_DWN"
         f"&community=SB&longitude={lon}&latitude={lat}&format=JSON"
     )
     response = requests.get(url, timeout=20)
@@ -34,19 +35,33 @@ def buscar_clima_municipio_nasa(lat: float, lon: float) -> Dict[str, Any]:
     meses_keys = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
     dias_mes = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 
+    tmax_list = []
+    tmin_list = []
     insolacao_estimada = []
     for m, d in zip(meses_keys, dias_mes):
-        rad = parametros.get("ALLSKY_SFC_SW_DWN", {}).get(m, 5.2)
+        t2m = float(parametros["T2M"][m])
+        trange = float(parametros.get("T2M_RANGE", {}).get(m, 10.5))
+        if trange <= 0:
+            trange = 10.5
+        tmax_list.append(round(t2m + trange / 2.0, 1))
+        tmin_list.append(round(t2m - trange / 2.0, 1))
+
+        rad = float(parametros.get("ALLSKY_SFC_SW_DWN", {}).get(m, 5.2))
         insolacao_estimada.append(int(round(max(95.0, min(310.0, rad * d * 1.25)))))
+
+    rec_max = max(round(float(parametros["T2M_MAX"][m]), 1) for m in meses_keys)
+    rec_min = min(round(float(parametros["T2M_MIN"][m]), 1) for m in meses_keys)
 
     return {
         "altitude_m": int(round(float(elev))),
-        "tmax": [round(float(parametros["T2M_MAX"][m]), 1) for m in meses_keys],
-        "tmin": [round(float(parametros["T2M_MIN"][m]), 1) for m in meses_keys],
+        "tmax": tmax_list,
+        "tmin": tmin_list,
         "ur":   [round(float(parametros["RH2M"][m]), 1) for m in meses_keys],
         # PRECTOTCORR vem em mm/dia; multiplicamos pelos dias do mês
         "chuva": [round(float(parametros["PRECTOTCORR"][m]) * d, 1) for m, d in zip(meses_keys, dias_mes)],
         "insolacao": insolacao_estimada,
+        "recorde_tmax_abs_c": rec_max,
+        "recorde_tmin_abs_c": rec_min,
     }
 
 
@@ -71,9 +86,10 @@ def main() -> None:
         notas.append(av["nota_mes"])
 
     nota_anual = round(sum(notas) / 12.0, 1)
-    print(f"\nResultado ICCB v1.0 para {args.nome}-{args.uf}:")
+    print(f"\nResultado ICCB v2.1 para {args.nome}-{args.uf}:")
     print(f"  Nota Anual: {nota_anual} ({classificar_nota(nota_anual)})")
     print(f"  Altitude estimada: {clima['altitude_m']} m")
+    print(f"  Extremos de Reanálise: Máx {clima['recorde_tmax_abs_c']}°C | Mín {clima['recorde_tmin_abs_c']}°C")
     for idx, mes in enumerate(MESES_ORDEM):
         print(
             f"  {mes}: Nota={notas[idx]:4.1f} | Tmax={clima['tmax'][idx]:4.1f}°C | "

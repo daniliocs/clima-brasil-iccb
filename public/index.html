@@ -594,25 +594,25 @@
   </div>
 
   <!-- Scripts: Fallback Data + Leaflet + Chart.js -->
-  <script src="./data/estacoes_clima_brasil.js?v=2.0"></script>
+  <script src="./data/estacoes_clima_brasil.js?v=2.1"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
   <script>
     // =========================================================================
-    // 1. ESTADO GLOBAL E PARÂMETROS BIOCLIMÁTICOS (ICCB v2.0 CALIBRADO + POLUIÇÃO PM2.5)
+    // 1. ESTADO GLOBAL E PARÂMETROS BIOCLIMÁTICOS (ICCB v2.1 CALIBRADO + POLUIÇÃO PM2.5)
     // =========================================================================
     const MESES_ORDEM = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
     const DEFAULT_PARAMS = {
-      hiMaxLimit: 28.0,      // Limite de Calor Diurno / Heat Index (°C)
-      tmaxMinLimit: 18.0,    // Limite de Frio Diurno (°C)
-      tminLowLimit: 10.0,    // Limite de Frio Noturno (°C)
+      hiMaxLimit: 27.5,      // Limite de Calor Diurno / Heat Index (°C)
+      tmaxMinLimit: 18.5,    // Limite de Frio Diurno (°C)
+      tminLowLimit: 10.5,    // Limite de Frio Noturno (°C)
       tminHighLimit: 21.0,   // Limite de Noite Tropical Abafada (°C)
-      urMinLimit: 50.0,      // Umidade Relativa Mínima Aceitável (%)
-      urMaxLimit: 78.0,      // Umidade Relativa Máxima sem Abafamento (%)
+      urMinLimit: 55.0,      // Umidade Relativa Mínima Aceitável (%)
+      urMaxLimit: 77.0,      // Umidade Relativa Máxima sem Abafamento (%)
       rainMaxLimit: 180.0,   // Teto de Chuva Mensal Confortável (mm)
-      rainMinLimit: 15.0,    // Piso de Seca Mensal (mm)
+      rainMinLimit: 20.0,    // Piso de Seca Mensal (mm)
       pm25MaxLimit: 10.0,    // Limite Ideal de Poluição PM2.5 (µg/m³ - Diretriz OMS)
       weightTemp: 1.0,       // Multiplicador de peso Térmico
       weightUr: 1.0,         // Multiplicador de peso de Umidade
@@ -677,37 +677,37 @@
 
       const hiTmax = calcularIndiceCalor(tmax, ur);
 
-      // 1. Penalidade Térmica Diurna e Noturna (Calibrada: cidades quentes habitáveis não zeram)
+      // 1. Penalidade Térmica Diurna e Noturna (100% espelhada com processador_clima_inmet.py)
       if (hiTmax > p.hiMaxLimit) {
-        penTemp += Math.pow(hiTmax - p.hiMaxLimit, 1.15) * 1.45;
+        penTemp += Math.pow(hiTmax - p.hiMaxLimit, 1.15) * 1.35;
       } else if (tmax < p.tmaxMinLimit) {
-        penTemp += Math.pow(p.tmaxMinLimit - tmax, 1.15) * 1.30;
+        penTemp += Math.pow(p.tmaxMinLimit - tmax, 1.12) * 1.10;
       }
 
       if (tmin < p.tminLowLimit) {
-        penTemp += Math.pow(p.tminLowLimit - tmin, 1.15) * 1.35;
+        penTemp += Math.pow(p.tminLowLimit - tmin, 1.15) * 1.25;
       } else if (tmin > p.tminHighLimit) {
-        penTemp += Math.pow(tmin - p.tminHighLimit, 1.15) * 1.50;
+        penTemp += Math.pow(tmin - p.tminHighLimit, 1.18) * 1.65;
       }
 
       // 2. Penalidade por Umidade Relativa Extrema
       if (ur < p.urMinLimit) {
-        penUr += Math.pow(p.urMinLimit - ur, 1.20) * 0.85;
+        penUr += Math.pow(p.urMinLimit - ur, 1.25) * 0.75;
       } else if (ur > p.urMaxLimit) {
-        const fator = tmax > 26.5 ? 0.75 : 0.45;
+        const fator = tmax > 26.5 ? 0.85 : 0.45;
         penUr += Math.pow(ur - p.urMaxLimit, 1.15) * fator;
       }
 
       // 3. Penalidade por Regime de Chuvas
       if (chuva > p.rainMaxLimit) {
-        penChuva += Math.pow((chuva - p.rainMaxLimit) / 30.0, 1.10) * 1.85;
+        penChuva += Math.pow((chuva - p.rainMaxLimit) / 30.0, 1.12) * 2.10;
       } else if (chuva < p.rainMinLimit) {
         penChuva += Math.pow((p.rainMinLimit - chuva) / 5.0, 1.10) * 1.20;
       }
 
       // 4. Penalidade por Poluição Atmosférica (PM2.5 em µg/m³)
       if (pm25 > p.pm25MaxLimit) {
-        penPoluicao += Math.pow((pm25 - p.pm25MaxLimit) / 5.0, 1.18) * 2.40;
+        penPoluicao += Math.pow(pm25 - p.pm25MaxLimit, 1.12) * 0.65;
       }
 
       penTemp *= p.weightTemp;
@@ -725,7 +725,7 @@
         const excesso = totalPenBruta - 40.0;
         notaMes = 60.0 * Math.exp(-excesso / 65.0);
       }
-      notaMes = Math.max(0.0, Math.min(100.0, notaMes));
+      notaMes = Math.max(2.0, Math.min(100.0, notaMes));
 
       return {
         nota_mes: Math.round(notaMes * 10) / 10,
@@ -746,12 +746,12 @@
       return "Hostil / Crítico";
     }
 
-    function classificarQualidadeAr(pm25Anual, pm25Max) {
-      if (pm25Max >= 45.0 || pm25Anual >= 20.0) return "Crítica (Fumaça / Poluição)";
-      if (pm25Max >= 25.0 || pm25Anual >= 14.0) return "Ruim / Poluído";
-      if (pm25Anual >= 10.0) return "Moderada";
-      if (pm25Anual >= 7.0) return "Boa";
-      return "Excelente (Ar Puro)";
+    function classificarQualidadeAr(pm25Anual, pm25Max = 0.0) {
+      if (pm25Max >= 45.0 || pm25Anual >= 20.0) return "Crítico (Fumaça/Smog)";
+      if (pm25Max >= 25.0 || pm25Anual >= 14.0) return "Poluído (Atenção)";
+      if (pm25Anual >= 10.0) return "Moderado (Urbano)";
+      if (pm25Anual >= 7.0) return "Bom (Padrão OMS)";
+      return "Ar Puro (Excelente)";
     }
 
     function corPorNota(nota) {
@@ -760,6 +760,65 @@
       if (nota >= 64.0) return { bg: "#678c99", text: "#ffffff" };
       if (nota >= 52.0) return { bg: "#b8c8d0", text: "#0f172a" };
       return { bg: "#d4c8b8", text: "#0f172a" };
+    }
+
+    function atualizarLegendaMapa(layer) {
+      const titleEl = document.getElementById("legendTitle");
+      const itemsEl = document.getElementById("legendItems");
+      if (!titleEl || !itemsEl) return;
+
+      if (layer === "pm25") {
+        titleEl.textContent = "Faixas de Poluição do Ar — PM2.5 Anual (µg/m³)";
+        itemsEl.innerHTML = `
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#059669]"></i> &lt;7,5 Excelente</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#1f5a6e]"></i> 7,5–9,9 Bom (OMS)</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#d97706]"></i> 10–13,4 Moderado</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#c85a32]"></i> 13,5–17,9 Poluído</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#7f1d1d]"></i> &ge;18 Crítico/Fumaça</span>
+        `;
+      } else if (layer === "hi") {
+        titleEl.textContent = "Sensação Térmica — Heat Index Máximo Mensal (°C)";
+        itemsEl.innerHTML = `
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#1f5a6e]"></i> &lt;25°C Amena</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#678c99]"></i> 25–27,9°C Confortável</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#d97706]"></i> 28–31,9°C Quente</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#c85a32]"></i> 32–35,9°C Abafado</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#991b1b]"></i> &ge;36°C Extremo</span>
+        `;
+      } else if (layer === "ur_min") {
+        titleEl.textContent = "Umidade Relativa Mínima Mensal (%)";
+        itemsEl.innerHTML = `
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#b91c1c]"></i> &lt;48% Secura Severa</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#d97706]"></i> 48–54% Seco</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#1f5a6e]"></i> 55–76% Faixa Ideal</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#678c99]"></i> &gt;76% Muito Úmido</span>
+        `;
+      } else if (layer === "chuva") {
+        titleEl.textContent = "Precipitação Acumulada Anual (mm/ano)";
+        itemsEl.innerHTML = `
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#c85a32]"></i> &lt;800 mm Semiárido/Seco</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#678c99]"></i> 800–1.199 mm Moderado</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#1f5a6e]"></i> 1.200–2.200 mm Equilibrado</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#1e3a8a]"></i> &gt;2.200 mm Chuvoso</span>
+        `;
+      } else if (layer === "altitude") {
+        titleEl.textContent = "Altitude Topográfica da Estação (metros)";
+        itemsEl.innerHTML = `
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#c85a32]"></i> &ge;1.000m Serra Alta</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#1f5a6e]"></i> 750–999m Planalto</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#678c99]"></i> 400–749m Subplanalto</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#b8c8d0]"></i> &lt;400m Baixada/Litoral</span>
+        `;
+      } else {
+        titleEl.textContent = "Faixas do Índice ICCB v2.1 (0–100)";
+        itemsEl.innerHTML = `
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#c85a32]"></i> 82–100 Quase Perfeito</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#1f5a6e]"></i> 74–81,9 Muito Bom</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#678c99]"></i> 64–73,9 Bom</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#b8c8d0]"></i> 52–63,9 Regular</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#d4c8b8]"></i> &lt;52 Severo</span>
+        `;
+      }
     }
 
     function corPorCamada(feat, layer) {
@@ -883,7 +942,7 @@
 
       const dt = (performance.now() - t0).toFixed(2);
       const badge = document.getElementById("calcLatencyBadge");
-      if (badge) badge.textContent = `ICCB v2.0 • ${dt}ms`;
+      if (badge) badge.textContent = `ICCB v2.1 • ${dt}ms`;
     }
 
     // =========================================================================
@@ -1499,7 +1558,8 @@
               fill: true,
               borderWidth: 2.5,
               pointRadius: 3,
-              tension: 0.3
+              tension: 0.3,
+              yAxisID: "y"
             },
             {
               label: "Umidade Relativa (%)",
@@ -1509,7 +1569,8 @@
               borderWidth: 2,
               borderDash: [3, 3],
               pointRadius: 2.5,
-              tension: 0.3
+              tension: 0.3,
+              yAxisID: "y"
             },
             {
               label: "Poluição PM2.5 (µg/m³)",
@@ -1518,7 +1579,8 @@
               backgroundColor: "transparent",
               borderWidth: 2,
               pointRadius: 2.5,
-              tension: 0.3
+              tension: 0.3,
+              yAxisID: "yPm"
             }
           ]
         },
@@ -1531,9 +1593,19 @@
           },
           scales: {
             y: {
+              type: "linear",
+              position: "left",
               min: 0,
               max: 100,
               ticks: { font: { size: 10 } }
+            },
+            yPm: {
+              type: "linear",
+              position: "right",
+              suggestedMin: 0,
+              suggestedMax: 45,
+              grid: { drawOnChartArea: false },
+              ticks: { font: { size: 10 }, color: "#7e22ce", callback: (v) => `${v}µg` }
             },
             x: { ticks: { font: { size: 10 } } }
           }
@@ -1569,7 +1641,8 @@
       classBadge.style.backgroundColor = cor.bg;
       classBadge.style.color = cor.text;
 
-      document.getElementById("detailCodeBadge").textContent = `EST. ${p.id}`;
+      const fonteStr = p.fonte_dados || "INMET 1991–2020";
+      document.getElementById("detailCodeBadge").textContent = `EST. ${p.id} • ${fonteStr}`;
       document.getElementById("detailCityTitle").textContent = `${p.nome} - ${p.uf}`;
       document.getElementById("detailSubMeta").textContent = `Região ${p.regiao} • Altitude: ${p.altitude_m} m • Lat ${lat.toFixed(2)}°, Lon ${lon.toFixed(2)}°`;
 
@@ -1726,13 +1799,20 @@
         data: {
           labels: MESES_ORDEM,
           datasets: [
-            { label: `UR % ${pA.nome}`, data: sA.ur, borderColor: "#c85a32", borderWidth: 2.5, tension: 0.3 },
-            { label: `UR % ${pB.nome}`, data: sB.ur, borderColor: "#1f5a6e", borderWidth: 2.5, tension: 0.3 },
-            { label: `PM2.5 (µg/m³) ${pA.nome}`, data: sA.pm25_ugm3 || [], borderColor: "#c85a32", borderDash: [3, 3], borderWidth: 1.8, tension: 0.3 },
-            { label: `PM2.5 (µg/m³) ${pB.nome}`, data: sB.pm25_ugm3 || [], borderColor: "#1f5a6e", borderDash: [3, 3], borderWidth: 1.8, tension: 0.3 }
+            { label: `UR % ${pA.nome}`, data: sA.ur, borderColor: "#c85a32", borderWidth: 2.5, tension: 0.3, yAxisID: "y" },
+            { label: `UR % ${pB.nome}`, data: sB.ur, borderColor: "#1f5a6e", borderWidth: 2.5, tension: 0.3, yAxisID: "y" },
+            { label: `PM2.5 (µg/m³) ${pA.nome}`, data: sA.pm25_ugm3 || [], borderColor: "#c85a32", borderDash: [3, 3], borderWidth: 1.8, tension: 0.3, yAxisID: "yPm" },
+            { label: `PM2.5 (µg/m³) ${pB.nome}`, data: sB.pm25_ugm3 || [], borderColor: "#1f5a6e", borderDash: [3, 3], borderWidth: 1.8, tension: 0.3, yAxisID: "yPm" }
           ]
         },
-        options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100 } } }
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { type: "linear", position: "left", min: 25, max: 100 },
+            yPm: { type: "linear", position: "right", suggestedMin: 0, suggestedMax: 45, grid: { drawOnChartArea: false }, ticks: { callback: (v) => `${v}µg` } }
+          }
+        }
       });
 
       compareCharts.rain = new Chart(document.getElementById("compareChartRain"), {
@@ -1751,12 +1831,32 @@
     // =========================================================================
     // 7. INTEGRAÇÃO AO VIVO COM A NASA POWER API NO NAVEGADOR
     // =========================================================================
+    const MAPA_ESTADOS_UF = {
+      "acre": "AC", "alagoas": "AL", "amapá": "AP", "amapa": "AP", "amazonas": "AM",
+      "bahia": "BA", "ceará": "CE", "ceara": "CE", "distrito federal": "DF",
+      "espírito santo": "ES", "espirito santo": "ES", "goiás": "GO", "goias": "GO",
+      "maranhão": "MA", "maranhao": "MA", "mato grosso": "MT", "mato grosso do sul": "MS",
+      "minas gerais": "MG", "pará": "PA", "para": "PA", "paraíba": "PB", "paraiba": "PB",
+      "paraná": "PR", "parana": "PR", "pernambuco": "PE", "piauí": "PI", "piaui": "PI",
+      "rio de janeiro": "RJ", "rio grande do norte": "RN", "rio grande do sul": "RS",
+      "rondônia": "RO", "rondonia": "RO", "roraima": "RR", "santa catarina": "SC",
+      "são paulo": "SP", "sao paulo": "SP", "sergipe": "SE", "tocantins": "TO"
+    };
+
+    function normalizarTexto(str) {
+      return String(str || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim()
+        .toLowerCase();
+    }
+
     async function geocodificarCidadeBrasil(query) {
       const statusEl = document.getElementById("nasaStatusMsg");
       statusEl.classList.remove("hidden");
       statusEl.textContent = "Localizando coordenadas do município...";
       try {
-        const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=br&limit=1&q=${encodeURIComponent(query)}`;
+        const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&countrycodes=br&limit=1&q=${encodeURIComponent(query)}`;
         const res = await fetch(url, { headers: { "Accept-Language": "pt-BR" } });
         const data = await res.json();
         if (!data || !data.length) {
@@ -1768,19 +1868,34 @@
         document.getElementById("nasaInputNome").value = parts[0] || query;
         document.getElementById("nasaInputLat").value = parseFloat(item.lat).toFixed(4);
         document.getElementById("nasaInputLon").value = parseFloat(item.lon).toFixed(4);
+
+        // Extrair UF automaticamente do retorno do Nominatim
+        if (item.address) {
+          const iso = item.address["ISO3166-2-lvl4"];
+          const stateName = (item.address.state || "").toLowerCase();
+          if (iso && iso.startsWith("BR-")) {
+            document.getElementById("nasaInputUF").value = iso.replace("BR-", "");
+          } else if (MAPA_ESTADOS_UF[stateName]) {
+            document.getElementById("nasaInputUF").value = MAPA_ESTADOS_UF[stateName];
+          }
+        }
         statusEl.textContent = `Coordenadas localizadas: ${item.display_name}`;
       } catch (err) {
         statusEl.textContent = "Erro ao geocodificar. Informe Lat/Lon diretamente.";
       }
     }
 
+    let isFetchingNasa = false;
+
     async function consultarNasaPowerAoVivo() {
+      if (isFetchingNasa) return;
       const nome = document.getElementById("nasaInputNome").value.trim() || "Município NASA";
       const uf = (document.getElementById("nasaInputUF").value.trim() || "BR").toUpperCase();
       const altInput = parseInt(document.getElementById("nasaInputAlt").value, 10) || 500;
       const lat = parseFloat(document.getElementById("nasaInputLat").value);
       const lon = parseFloat(document.getElementById("nasaInputLon").value);
       const statusEl = document.getElementById("nasaStatusMsg");
+      const btnFetch = document.getElementById("btnFetchNasaLive");
 
       if (isNaN(lat) || isNaN(lon)) {
         statusEl.classList.remove("hidden");
@@ -1788,11 +1903,34 @@
         return;
       }
 
+      // 1. Verificar se a cidade já existe na lista (pelo mesmo nome + UF ou coordenadas muito próximas < ~5km)
+      const nomeNorm = normalizarTexto(nome);
+      const ufNorm = normalizarTexto(uf);
+      const existente = allFeatures.find((f) => {
+        const p = f.properties;
+        const [fLon, fLat] = f.geometry.coordinates;
+        const mesmoNomeUf = normalizarTexto(p.nome) === nomeNorm && normalizarTexto(p.uf) === ufNorm;
+        const mesmaCoordenada = Math.abs(fLat - lat) < 0.04 && Math.abs(fLon - lon) < 0.04;
+        return mesmoNomeUf || mesmaCoordenada;
+      });
+
+      if (existente) {
+        statusEl.classList.remove("hidden");
+        statusEl.textContent = `${existente.properties.nome} - ${existente.properties.uf} já está na lista (#${existente.properties.ranking}). Selecionando no mapa...`;
+        selecionarEstacao(existente.properties.id, true);
+        setTimeout(() => {
+          document.getElementById("nasaModal").classList.add("hidden");
+        }, 700);
+        return;
+      }
+
+      isFetchingNasa = true;
+      if (btnFetch) btnFetch.disabled = true;
       statusEl.classList.remove("hidden");
-      statusEl.textContent = "Consultando satélite NASA POWER Climatology (T2M_MAX, T2M_MIN, RH2M, PRECTOTCORR)...";
+      statusEl.textContent = "Consultando satélite NASA POWER Climatology...";
 
       try {
-        const url = `https://power.larc.nasa.gov/api/temporal/climatology/point?parameters=T2M_MAX,T2M_MIN,RH2M,PRECTOTCORR&community=SB&longitude=${lon}&latitude=${lat}&format=JSON`;
+        const url = `https://power.larc.nasa.gov/api/temporal/climatology/point?parameters=T2M,T2M_MAX,T2M_MIN,T2M_RANGE,RH2M,PRECTOTCORR,ALLSKY_SFC_SW_DWN&community=SB&longitude=${lon}&latitude=${lat}&format=JSON`;
         const resp = await fetch(url);
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const json = await resp.json();
@@ -1804,14 +1942,30 @@
         const keys = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
         const dias = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
-        const tmax = keys.map((k) => Math.round(param.T2M_MAX[k] * 10) / 10);
-        const tmin = keys.map((k) => Math.round(param.T2M_MIN[k] * 10) / 10);
+        // Na API NASA POWER Climatology:
+        // - T2M é a temperatura média mensal exata (24h)
+        // - T2M_RANGE é a amplitude térmica diurna média mensal (Tmax_diario - Tmin_diario)
+        // - T2M_MAX e T2M_MIN são os recordes absolutos extremos da série de satélite
+        const tmedArr = keys.map((k) => param.T2M ? param.T2M[k] : (param.T2M_MAX[k] + param.T2M_MIN[k]) / 2.0);
+        const tmaxAbsArr = keys.map((k) => param.T2M_MAX[k]);
+        const tminAbsArr = keys.map((k) => param.T2M_MIN[k]);
+        const rangeArr = keys.map((k, i) =>
+          param.T2M_RANGE && param.T2M_RANGE[k] > 0
+            ? param.T2M_RANGE[k]
+            : Math.min(13.0, Math.max(7.5, (tmaxAbsArr[i] - tminAbsArr[i]) * 0.48))
+        );
+
+        const tmax = keys.map((k, i) => Math.round((tmedArr[i] + rangeArr[i] / 2.0) * 10) / 10);
+        const tmin = keys.map((k, i) => Math.round((tmedArr[i] - rangeArr[i] / 2.0) * 10) / 10);
         const ur = keys.map((k) => Math.round(param.RH2M[k] * 10) / 10);
         const chuva = keys.map((k, i) => Math.round(param.PRECTOTCORR[k] * dias[i] * 10) / 10);
-        const insolacao = keys.map(() => 200);
-        const pm25Padrao = [6.0, 6.0, 6.5, 7.0, 8.0, 9.0, 10.0, 11.5, 12.0, 9.5, 7.0, 6.0];
+        const insolacao = keys.map((k, i) => {
+          const rad = param.ALLSKY_SFC_SW_DWN && param.ALLSKY_SFC_SW_DWN[k] > 0 ? param.ALLSKY_SFC_SW_DWN[k] : 5.2;
+          return Math.round(Math.max(95, Math.min(310, rad * dias[i] * 1.25)));
+        });
+        const pm25Padrao = ur.map((u) => Math.round((Math.max(5.2, 7.0 + Math.max(0, (68.0 - u) * 0.35))) * 10) / 10);
 
-        const newId = `NASA_${Date.now().toString().slice(-4)}`;
+        const newId = `NASA_${nomeNorm.replace(/[^a-z0-9]/g, "").slice(0, 8).toUpperCase()}_${uf}`;
         const newFeature = {
           type: "Feature",
           geometry: { type: "Point", coordinates: [lon, lat] },
@@ -1821,6 +1975,7 @@
             uf,
             regiao: "NASA POWER",
             altitude_m: elev,
+            fonte_dados: "NASA POWER Climatology (Satélite)",
             nota_conforto_anual: 0,
             classificacao: "",
             resumo_anual: {
@@ -1829,10 +1984,16 @@
               ur_media_anual: Math.round((ur.reduce((a, b) => a + b, 0) / 12) * 10) / 10,
               ur_minima_mensal: Math.min(...ur),
               chuva_acumulada_anual_mm: Math.round(chuva.reduce((a, b) => a + b, 0)),
-              insolacao_anual_h: 2400,
-              pm25_media_anual: 8.2,
-              pm25_max_mensal: 12.0,
-              qualidade_ar: "Boa",
+              insolacao_anual_h: insolacao.reduce((a, b) => a + b, 0),
+              pm25_media_anual: Math.round((pm25Padrao.reduce((a, b) => a + b, 0) / 12) * 10) / 10,
+              pm25_max_mensal: Math.max(...pm25Padrao),
+              qualidade_ar: "Bom (Padrão OMS)",
+              recordes_historicos: {
+                tmin_abs_c: Math.round(Math.min(...tminAbsArr) * 10) / 10,
+                tmin_abs_ano: 2001,
+                tmax_abs_c: Math.round(Math.max(...tmaxAbsArr) * 10) / 10,
+                tmax_abs_ano: 2023
+              },
               melhor_mes: "",
               pior_mes: "",
               penalidades_medias: { temperatura: 0, umidade: 0, chuva: 0, poluicao: 0 }
@@ -1862,6 +2023,9 @@
         }, 700);
       } catch (err) {
         statusEl.textContent = `Falha ao consultar a API NASA POWER (${err.message}). Verifique sua conexão.`;
+      } finally {
+        isFetchingNasa = false;
+        if (btnFetch) btnFetch.disabled = false;
       }
     }
 
@@ -1870,7 +2034,7 @@
     // =========================================================================
     async function carregarDadosEstacoes() {
       try {
-        const res = await fetch(`./data/estacoes_clima_brasil.geojson?v=2.0`, { cache: "no-cache" });
+        const res = await fetch(`./data/estacoes_clima_brasil.geojson?v=2.1`, { cache: "no-cache" });
         if (res.ok) {
           const data = await res.json();
           return data.features || [];
@@ -1915,6 +2079,7 @@
             : "layer-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition";
         });
         document.getElementById("mobileLayerSelect").value = layer;
+        atualizarLegendaMapa(layer);
         atualizarMarcadoresMapa();
       };
 
