@@ -294,14 +294,14 @@
         <input
           id="desktopSearchInput"
           type="search"
-          placeholder="Buscar entre as 236 cidades (ex: Curitiba, AM)..."
+          placeholder="Buscar entre as 260 cidades (ex: Pirapora, Curitiba)..."
           class="w-full pl-9 pr-3 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#1f5a6e] text-slate-800 placeholder:text-slate-400"
         />
       </div>
       <div class="flex items-center gap-1 overflow-x-auto scroller pb-0.5" id="regionFilterBar">
         <button type="button" data-region="TOP20" class="region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-[#1f5a6e] text-white shrink-0">Top 20</button>
         <button type="button" data-region="CAPITAIS" class="region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 shrink-0">Capitais (27)</button>
-        <button type="button" data-region="ALL" class="region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 shrink-0">Todas (236)</button>
+        <button type="button" data-region="ALL" class="region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 shrink-0">Todas (260)</button>
         <button type="button" data-region="ALTITUDE" class="region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 shrink-0">Altitude &ge;800m</button>
         <button type="button" data-region="Sudeste" class="region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 shrink-0">Sudeste</button>
         <button type="button" data-region="Sul" class="region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 shrink-0">Sul</button>
@@ -596,21 +596,21 @@
   </div>
 
   <!-- Scripts: Fallback Data + Leaflet + Chart.js -->
-  <script src="./data/estacoes_clima_brasil.js?v=2.2"></script>
+  <script src="./data/estacoes_clima_brasil.js?v=2.3"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
   <script>
     // =========================================================================
-    // 1. ESTADO GLOBAL E PARÂMETROS BIOCLIMÁTICOS (ICCB v2.1 CALIBRADO + POLUIÇÃO PM2.5)
+    // 1. ESTADO GLOBAL E PARÂMETROS BIOCLIMÁTICOS (ICCB v2.3 CALIBRADO + POLUIÇÃO PM2.5)
     // =========================================================================
     const MESES_ORDEM = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
     const DEFAULT_PARAMS = {
-      hiMaxLimit: 27.5,      // Limite de Calor Diurno / Heat Index (°C)
+      hiMaxLimit: 26.5,      // Limite de Calor Diurno / Heat Index (°C)
       tmaxMinLimit: 18.5,    // Limite de Frio Diurno (°C)
       tminLowLimit: 10.5,    // Limite de Frio Noturno (°C)
-      tminHighLimit: 21.0,   // Limite de Noite Tropical Abafada (°C)
+      tminHighLimit: 19.5,   // Limite de Noite Tropical Abafada (°C)
       urMinLimit: 55.0,      // Umidade Relativa Mínima Aceitável (%)
       urMaxLimit: 77.0,      // Umidade Relativa Máxima sem Abafamento (%)
       rainMaxLimit: 180.0,   // Teto de Chuva Mensal Confortável (mm)
@@ -694,9 +694,15 @@
 
       const hiTmax = calcularIndiceCalor(tmax, ur);
 
-      // 1. Penalidade Térmica Diurna e Noturna (100% espelhada com processador_clima_inmet.py)
-      if (hiTmax > p.hiMaxLimit) {
-        penTemp += Math.pow(hiTmax - p.hiMaxLimit, 1.15) * 1.35;
+      // Em regiões de calor seco/continental (Vale do São Francisco, Norte de MG, Sertão, Centro-Oeste),
+      // o ar a 32°C-37°C com umidade de 40-55% não infla tanto o Heat Index de Rothfusz, mas gera
+      // intenso estresse térmico por insolação e ar quente. Por isso combinamos o Heat Index com o
+      // excesso térmico radiativo acima de 26.5°C (100% espelhado com processador_clima_inmet.py):
+      const calorEfetivo = Math.max(hiTmax, tmax + Math.max(0.0, (tmax - 26.5) * 0.65));
+
+      // 1. Penalidade Térmica Diurna e Noturna
+      if (calorEfetivo > p.hiMaxLimit) {
+        penTemp += Math.pow(calorEfetivo - p.hiMaxLimit, 1.22) * 1.95;
       } else if (tmax < p.tmaxMinLimit) {
         penTemp += Math.pow(p.tmaxMinLimit - tmax, 1.12) * 1.10;
       }
@@ -704,7 +710,7 @@
       if (tmin < p.tminLowLimit) {
         penTemp += Math.pow(p.tminLowLimit - tmin, 1.15) * 1.25;
       } else if (tmin > p.tminHighLimit) {
-        penTemp += Math.pow(tmin - p.tminHighLimit, 1.18) * 1.65;
+        penTemp += Math.pow(tmin - p.tminHighLimit, 1.20) * 1.90;
       }
 
       // 2. Penalidade por Umidade Relativa Extrema
@@ -736,11 +742,11 @@
 
       // Curva de amortecimento assintótico para que apenas locais inviáveis à vida humana cheguem perto de zero
       let notaMes;
-      if (totalPenBruta <= 40.0) {
+      if (totalPenBruta <= 45.0) {
         notaMes = 100.0 - totalPenBruta;
       } else {
-        const excesso = totalPenBruta - 40.0;
-        notaMes = 60.0 * Math.exp(-excesso / 65.0);
+        const excesso = totalPenBruta - 45.0;
+        notaMes = 55.0 * Math.exp(-excesso / 55.0);
       }
       notaMes = Math.max(2.0, Math.min(100.0, notaMes));
 
@@ -1354,6 +1360,7 @@
       const r = p.resumo_anual;
       const pen = r.penalidades_medias;
       const maxHi = Math.max(...p.series_mensais.indice_calor);
+      const maxTmaxMes = Math.max(...p.series_mensais.tmax);
       const tmedAnual = ((r.tmin_media_anual + r.tmax_media_anual) / 2.0).toFixed(1);
       const pm25Media = r.pm25_media_anual || 8.0;
       const pm25Max = r.pm25_max_mensal || 12.0;
@@ -1375,10 +1382,10 @@
         <!-- KPI Summary Grid (2x2) -->
         <div class="grid grid-cols-2 gap-2">
           <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-2.5">
-            <div class="text-[10px] font-semibold uppercase text-slate-400">Temp. Média Anual</div>
+            <div class="text-[10px] font-semibold uppercase text-slate-400">Temp. &amp; Máxima Diurna</div>
             <div class="font-mono font-bold text-sm text-slate-800 mt-0.5">${tmedAnual}°C <span class="text-xs font-normal text-slate-500">méd</span></div>
-            <div class="text-[10px] text-slate-600 font-medium">Mín ${r.tmin_media_anual}° • Máx ${r.tmax_media_anual}°</div>
-            <div class="text-[10px] text-slate-400">Heat Index máx ${maxHi.toFixed(1)}°C</div>
+            <div class="text-[10px] text-slate-600 font-medium">Mín ${r.tmin_media_anual}° • Máx ${r.tmax_media_anual}° (pico ${maxTmaxMes.toFixed(1)}°)</div>
+            <div class="text-[10px] text-slate-400">Sensação/Calor máx ${maxHi.toFixed(1)}°C</div>
           </div>
           <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-2.5">
             <div class="text-[10px] font-semibold uppercase text-slate-400">Poluição do Ar (PM2.5)</div>
@@ -2015,10 +2022,10 @@
         const keys = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
         const dias = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
-        // Na API NASA POWER Climatology:
-        // - T2M é a temperatura média mensal exata (24h)
-        // - T2M_RANGE é a amplitude térmica diurna média mensal (Tmax_diario - Tmin_diario)
-        // - T2M_MAX e T2M_MIN são os recordes absolutos extremos da série de satélite
+        // Na API NASA POWER Climatology (grade MERRA-2 de 50km):
+        // T2M + T2M_RANGE/2 sozinho subestima as máximas de tardes ensolaradas em vales quentes (ex: Pirapora),
+        // pois dilui dias nublados e usa a altitude média do bloco de 50km. Combinamos a máxima média com o
+        // envelope de tardes quentes (T2M_MAX) para refletir a temperatura máxima diurna real sentida:
         const tmedArr = keys.map((k) => param.T2M ? param.T2M[k] : (param.T2M_MAX[k] + param.T2M_MIN[k]) / 2.0);
         const tmaxAbsArr = keys.map((k) => param.T2M_MAX[k]);
         const tminAbsArr = keys.map((k) => param.T2M_MIN[k]);
@@ -2028,7 +2035,13 @@
             : Math.min(13.0, Math.max(7.5, (tmaxAbsArr[i] - tminAbsArr[i]) * 0.48))
         );
 
-        const tmax = keys.map((k, i) => Math.round((tmedArr[i] + rangeArr[i] / 2.0) * 10) / 10);
+        const tmax = keys.map((k, i) => {
+          const baseMax = tmedArr[i] + rangeArr[i] / 2.0;
+          const hotAfternoonMax = baseMax > 27.0
+            ? baseMax * 0.58 + tmaxAbsArr[i] * 0.42
+            : baseMax * 0.80 + tmaxAbsArr[i] * 0.20;
+          return Math.round(hotAfternoonMax * 10) / 10;
+        });
         const tmin = keys.map((k, i) => Math.round((tmedArr[i] - rangeArr[i] / 2.0) * 10) / 10);
         const ur = keys.map((k) => Math.round(param.RH2M[k] * 10) / 10);
         const chuva = keys.map((k, i) => Math.round(param.PRECTOTCORR[k] * dias[i] * 10) / 10);
@@ -2053,6 +2066,7 @@
             classificacao: "",
             resumo_anual: {
               tmax_media_anual: Math.round((tmax.reduce((a, b) => a + b, 0) / 12) * 10) / 10,
+              tmax_mes_mais_quente: Math.max(...tmax),
               tmin_media_anual: Math.round((tmin.reduce((a, b) => a + b, 0) / 12) * 10) / 10,
               ur_media_anual: Math.round((ur.reduce((a, b) => a + b, 0) / 12) * 10) / 10,
               ur_minima_mensal: Math.min(...ur),
@@ -2107,7 +2121,7 @@
     // =========================================================================
     async function carregarDadosEstacoes() {
       try {
-        const res = await fetch(`./data/estacoes_clima_brasil.geojson?v=2.2`, { cache: "no-cache" });
+        const res = await fetch(`./data/estacoes_clima_brasil.geojson?v=2.3`, { cache: "no-cache" });
         if (res.ok) {
           const data = await res.json();
           return data.features || [];

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'iccb-clima-brasil-v6';
+const CACHE_NAME = 'iccb-clima-brasil-v7';
 const ASSETS = [
   './',
   './index.html',

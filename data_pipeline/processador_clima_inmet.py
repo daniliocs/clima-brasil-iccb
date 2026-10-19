@@ -44,11 +44,11 @@ def avaliar_mes(
     pm25: float = 8.0,
 ) -> Dict[str, float]:
     """
-    Avalia o conforto bioclimático e ambiental de um mês (0 a 100) no modelo ICCB v2.1 calibrado.
+    Avalia o conforto bioclimático e ambiental de um mês (0 a 100) no modelo ICCB v2.0/v2.2 calibrado.
     Equação 100% espelhada com `avaliarMes()` no frontend (`public/index.html`).
-    Nota 0 representa condições extremas incompatíveis com a vida humana ao ar livre (ex: HI > 54°C
-    ou poluição letal > 250 µg/m³). Cidades brasileiras reais variam entre ~30 (pior mês de calor/fumaça)
-    e ~99 (mês perfeito de primavera/outono serrano).
+    Penaliza com rigor realista tanto o calor úmido (Heat Index) quanto o calor radiante seco
+    do interior do Brasil (ex: Pirapora-MG, Vale do São Francisco, Jequitinhonha, Centro-Oeste),
+    mantendo amortecimento assintótico para que locais habitáveis não zerem.
     """
     pen_temp = 0.0
     pen_ur = 0.0
@@ -57,60 +57,63 @@ def avaliar_mes(
 
     hi_tmax = calcular_indice_calor(tmax, ur)
 
-    # Limites padrão ICCB v2.1 (idênticos ao DEFAULT_PARAMS do frontend)
-    hi_max_limit = 27.5
+    # Limites padrão (idênticos ao DEFAULT_PARAMS do frontend)
+    hi_max_limit = 26.5
     tmax_min_limit = 18.5
     tmin_low_limit = 10.5
-    tmin_high_limit = 21.0
+    tmin_high_limit = 19.5
     ur_min_limit = 55.0
     ur_max_limit = 77.0
     rain_max_limit = 180.0
     rain_min_limit = 20.0
     pm25_max_limit = 10.0
 
-    # 1. Temperatura Diurna (Sensação Térmica / Heat Index e Frio Diurno)
-    if hi_tmax > hi_max_limit:
-        pen_temp += ((hi_tmax - hi_max_limit) ** 1.15) * 1.35
-    elif tmax < tmax_min_limit:
-        pen_temp += ((tmax_min_limit - tmax) ** 1.12) * 1.10
+    # Sensação térmica diurna efetiva: considera tanto o abafamento úmido (Heat Index)
+    # quanto a insolação/calor seco de tardes escaldantes (>26.5°C) mesmo com baixa umidade
+    calor_efetivo = max(hi_tmax, tmax + max(0.0, (tmax - 26.5) * 0.65))
 
-    # Temperatura Noturna (Sono reparador vs frio intenso ou noite abafada)
+    # 1. Temperatura Diurna e Noturna
+    if calor_efetivo > hi_max_limit:
+        pen_temp += ((calor_efetivo - hi_max_limit) ** 1.22) * 1.95
+    elif tmax < tmax_min_limit:
+        pen_temp += ((tmax_min_limit - tmax) ** 1.15) * 1.25
+
     if tmin < tmin_low_limit:
-        pen_temp += ((tmin_low_limit - tmin) ** 1.15) * 1.25
+        pen_temp += ((tmin_low_limit - tmin) ** 1.15) * 1.30
     elif tmin > tmin_high_limit:
-        pen_temp += ((tmin - tmin_high_limit) ** 1.18) * 1.65
+        pen_temp += ((tmin - tmin_high_limit) ** 1.20) * 1.90
 
     # 2. Umidade Relativa Extrema (Secura respiratória vs abafamento/mofo)
     if ur < ur_min_limit:
-        pen_ur += ((ur_min_limit - ur) ** 1.25) * 0.75
+        pen_ur += ((ur_min_limit - ur) ** 1.22) * 0.85
     elif ur > ur_max_limit:
-        fator = 0.85 if tmax > 26.5 else 0.45
+        fator = 0.95 if tmax > 26.0 else 0.50
         pen_ur += ((ur - ur_max_limit) ** 1.15) * fator
 
     # 3. Precipitação Mensal (Excesso de chuva vs seca prolongada)
     if chuva > rain_max_limit:
         pen_chuva += (((chuva - rain_max_limit) / 30.0) ** 1.12) * 2.10
     elif chuva < rain_min_limit:
-        pen_chuva += (((rain_min_limit - chuva) / 5.0) ** 1.10) * 1.20
+        pen_chuva += (((rain_min_limit - chuva) / 5.0) ** 1.10) * 1.30
 
     # 4. Poluição Atmosférica (Material Particulado Fino PM2.5 em µg/m³ - Diretriz OMS = 10 µg/m³)
     if pm25 > pm25_max_limit:
-        pen_poluicao += ((pm25 - pm25_max_limit) ** 1.12) * 0.65
+        pen_poluicao += ((pm25 - pm25_max_limit) ** 1.15) * 0.70
 
     total_pen_bruta = pen_temp + pen_ur + pen_chuva + pen_poluicao
 
     # Amortecimento assintótico suave para reservas de habitabilidade:
-    if total_pen_bruta <= 40.0:
+    if total_pen_bruta <= 42.0:
         nota_mes = 100.0 - total_pen_bruta
     else:
-        excesso = total_pen_bruta - 40.0
-        nota_mes = 60.0 * float(np.exp(-excesso / 65.0))
+        excesso = total_pen_bruta - 42.0
+        nota_mes = 58.0 * float(np.exp(-excesso / 72.0))
 
     nota_mes = max(2.0, min(100.0, float(nota_mes)))
 
     return {
         "nota_mes": round(nota_mes, 1),
-        "indice_calor_max": hi_tmax,
+        "indice_calor_max": round(calor_efetivo, 1),
         "pen_temp": round(pen_temp, 1),
         "pen_ur": round(pen_ur, 1),
         "pen_chuva": round(pen_chuva, 1),
