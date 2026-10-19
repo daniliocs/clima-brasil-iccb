@@ -42,13 +42,17 @@ def avaliar_mes(
     ur: float,
     chuva: float,
     pm25: float = 8.0,
+    fator_persistencia_seca: float = 1.0,
+    fator_persistencia_umidade: float = 1.0,
 ) -> Dict[str, float]:
     """
-    Avalia o conforto bioclimático e ambiental de um mês (0 a 100) no modelo ICCB v2.0/v2.2 calibrado.
+    Avalia o conforto bioclimático e ambiental de um mês (0 a 100) no modelo ICCB v2.4 calibrado.
     Equação 100% espelhada com `avaliarMes()` no frontend (`public/index.html`).
-    Penaliza com rigor realista tanto o calor úmido (Heat Index) quanto o calor radiante seco
-    do interior do Brasil (ex: Pirapora-MG, Vale do São Francisco, Jequitinhonha, Centro-Oeste),
-    mantendo amortecimento assintótico para que locais habitáveis não zerem.
+    Diretrizes do autor do índice:
+    1. Pune muito mais o calor diurno/noturno do que o frio.
+    2. Pune muito mais a secura (ar seco < 59% e falta de chuva < 35mm) do que uma quantidade média de chuva (35–200mm).
+    3. Aplica um agravante progressivo de persistência (`fator_persistencia_seca`) para cidades com muitos meses de seca no ano (ex: Brasília, Goiânia, Norte de MG).
+    4. Pune severamente dilúvios (> 200mm) e alta umidade persistente (> 78%, especialmente abafada).
     """
     pen_temp = 0.0
     pen_ur = 0.0
@@ -59,46 +63,49 @@ def avaliar_mes(
 
     # Limites padrão (idênticos ao DEFAULT_PARAMS do frontend)
     hi_max_limit = 26.5
-    tmax_min_limit = 18.5
-    tmin_low_limit = 10.5
+    tmax_min_limit = 18.0
+    tmin_low_limit = 9.5
     tmin_high_limit = 19.5
-    ur_min_limit = 55.0
-    ur_max_limit = 77.0
-    rain_max_limit = 180.0
-    rain_min_limit = 20.0
+    ur_min_limit = 59.0
+    ur_max_limit = 78.0
+    rain_max_limit = 200.0
+    rain_min_limit = 35.0
     pm25_max_limit = 10.0
 
     # Sensação térmica diurna efetiva: considera tanto o abafamento úmido (Heat Index)
     # quanto a insolação/calor seco de tardes escaldantes (>26.5°C) mesmo com baixa umidade
     calor_efetivo = max(hi_tmax, tmax + max(0.0, (tmax - 26.5) * 0.65))
 
-    # 1. Temperatura Diurna e Noturna
+    # 1. Temperatura: Calor fortemente punido; Frio suavemente punido
     if calor_efetivo > hi_max_limit:
-        pen_temp += ((calor_efetivo - hi_max_limit) ** 1.22) * 1.95
+        pen_temp += ((calor_efetivo - hi_max_limit) ** 1.20) * 1.80
     elif tmax < tmax_min_limit:
-        pen_temp += ((tmax_min_limit - tmax) ** 1.15) * 1.25
+        pen_temp += ((tmax_min_limit - tmax) ** 1.08) * 0.65
 
     if tmin < tmin_low_limit:
-        pen_temp += ((tmin_low_limit - tmin) ** 1.15) * 1.30
+        pen_temp += ((tmin_low_limit - tmin) ** 1.10) * 0.75
     elif tmin > tmin_high_limit:
-        pen_temp += ((tmin - tmin_high_limit) ** 1.20) * 1.90
+        pen_temp += ((tmin - tmin_high_limit) ** 1.18) * 1.75
 
-    # 2. Umidade Relativa Extrema (Secura respiratória vs abafamento/mofo)
+    # 2. Umidade Relativa: Secura fortemente punida (amplificada por muitos meses secos);
+    # Alta umidade punida quando abafada ou persistente por muitos meses
     if ur < ur_min_limit:
-        pen_ur += ((ur_min_limit - ur) ** 1.22) * 0.85
+        pen_ur += (((ur_min_limit - ur) ** 1.25) * 1.25) * fator_persistencia_seca
     elif ur > ur_max_limit:
-        fator = 0.95 if tmax > 26.0 else 0.50
-        pen_ur += ((ur - ur_max_limit) ** 1.15) * fator
+        fator_abafamento = 1.05 if tmax > 26.5 else 0.45
+        pen_ur += (((ur - ur_max_limit) ** 1.18) * fator_abafamento) * fator_persistencia_umidade
 
-    # 3. Precipitação Mensal (Excesso de chuva vs seca prolongada)
-    if chuva > rain_max_limit:
-        pen_chuva += (((chuva - rain_max_limit) / 30.0) ** 1.12) * 2.10
-    elif chuva < rain_min_limit:
-        pen_chuva += (((rain_min_limit - chuva) / 5.0) ** 1.10) * 1.30
+    # 3. Precipitação Mensal: Seca (< 35mm) fortemente punida (especialmente com ar seco/quente e persistente);
+    # Chuva média (35–200mm) isenta; Dilúvio (> 200mm) fortemente punido
+    if chuva < rain_min_limit:
+        fator_ar_seco = 1.35 if (ur < 60.0 or tmax > 27.0) else 0.70
+        pen_chuva += ((((rain_min_limit - chuva) / 5.0) ** 1.18) * 1.45 * fator_ar_seco) * fator_persistencia_seca
+    elif chuva > rain_max_limit:
+        pen_chuva += ((((chuva - rain_max_limit) / 25.0) ** 1.22) * 2.25) * fator_persistencia_umidade
 
     # 4. Poluição Atmosférica (Material Particulado Fino PM2.5 em µg/m³ - Diretriz OMS = 10 µg/m³)
     if pm25 > pm25_max_limit:
-        pen_poluicao += ((pm25 - pm25_max_limit) ** 1.15) * 0.70
+        pen_poluicao += ((pm25 - pm25_max_limit) ** 1.12) * 0.65
 
     total_pen_bruta = pen_temp + pen_ur + pen_chuva + pen_poluicao
 
@@ -107,7 +114,7 @@ def avaliar_mes(
         nota_mes = 100.0 - total_pen_bruta
     else:
         excesso = total_pen_bruta - 42.0
-        nota_mes = 58.0 * float(np.exp(-excesso / 72.0))
+        nota_mes = 58.0 * float(np.exp(-excesso / 62.0))
 
     nota_mes = max(2.0, min(100.0, float(nota_mes)))
 
@@ -343,8 +350,22 @@ def processar_estacoes(estacoes_brutas: List[Dict[str, Any]]) -> Dict[str, Any]:
         pen_t_list, pen_u_list, pen_c_list, pen_p_list = [], [], [], []
         pm25_mensal = est.get("pm25") or obter_pm25_estacao(est)
 
+        # Contagem de meses com seca (< 35mm ou UR < 59%) e meses muito úmidos/dilúvio (> 78% ou > 200mm)
+        meses_seca = sum(1 for u, c in zip(est["ur"], est["chuva"]) if c < 35.0 or u < 59.0)
+        meses_umidos = sum(1 for u, c in zip(est["ur"], est["chuva"]) if u > 78.0 or c > 200.0)
+        fator_persistencia_seca = 1.0 + max(0, meses_seca - 2) * 0.20
+        fator_persistencia_umidade = 1.0 + max(0, meses_umidos - 4) * 0.12
+
         for m in range(12):
-            av = avaliar_mes(est["tmax"][m], est["tmin"][m], est["ur"][m], est["chuva"][m], pm25_mensal[m])
+            av = avaliar_mes(
+                est["tmax"][m],
+                est["tmin"][m],
+                est["ur"][m],
+                est["chuva"][m],
+                pm25_mensal[m],
+                fator_persistencia_seca=fator_persistencia_seca,
+                fator_persistencia_umidade=fator_persistencia_umidade,
+            )
             notas_mensais.append(av["nota_mes"])
             hi_mensais.append(av["indice_calor_max"])
             pen_t_list.append(av["pen_temp"])

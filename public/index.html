@@ -596,25 +596,25 @@
   </div>
 
   <!-- Scripts: Fallback Data + Leaflet + Chart.js -->
-  <script src="./data/estacoes_clima_brasil.js?v=2.3"></script>
+  <script src="./data/estacoes_clima_brasil.js?v=2.4"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
   <script>
     // =========================================================================
-    // 1. ESTADO GLOBAL E PARÂMETROS BIOCLIMÁTICOS (ICCB v2.3 CALIBRADO + POLUIÇÃO PM2.5)
+    // 1. ESTADO GLOBAL E PARÂMETROS BIOCLIMÁTICOS (ICCB v2.4 CALIBRADO + POLUIÇÃO PM2.5)
     // =========================================================================
     const MESES_ORDEM = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
     const DEFAULT_PARAMS = {
       hiMaxLimit: 26.5,      // Limite de Calor Diurno / Heat Index (°C)
-      tmaxMinLimit: 18.5,    // Limite de Frio Diurno (°C)
-      tminLowLimit: 10.5,    // Limite de Frio Noturno (°C)
+      tmaxMinLimit: 18.0,    // Limite de Frio Diurno (°C)
+      tminLowLimit: 9.5,     // Limite de Frio Noturno (°C)
       tminHighLimit: 19.5,   // Limite de Noite Tropical Abafada (°C)
-      urMinLimit: 55.0,      // Umidade Relativa Mínima Aceitável (%)
-      urMaxLimit: 77.0,      // Umidade Relativa Máxima sem Abafamento (%)
-      rainMaxLimit: 180.0,   // Teto de Chuva Mensal Confortável (mm)
-      rainMinLimit: 20.0,    // Piso de Seca Mensal (mm)
+      urMinLimit: 59.0,      // Umidade Relativa Mínima Aceitável (%)
+      urMaxLimit: 78.0,      // Umidade Relativa Máxima sem Abafamento (%)
+      rainMaxLimit: 200.0,   // Teto de Chuva Mensal Confortável (mm)
+      rainMinLimit: 35.0,    // Piso de Seca Mensal (mm)
       pm25MaxLimit: 10.0,    // Limite Ideal de Poluição PM2.5 (µg/m³ - Diretriz OMS)
       weightTemp: 1.0,       // Multiplicador de peso Térmico
       weightUr: 1.0,         // Multiplicador de peso de Umidade
@@ -686,7 +686,7 @@
       return Math.round(Math.max(tempC, hiC) * 10) / 10;
     }
 
-    function avaliarMes(tmax, tmin, ur, chuva, pm25 = 8.0, p = userParams) {
+    function avaliarMes(tmax, tmin, ur, chuva, pm25 = 8.0, p = userParams, fatorPersistenciaSeca = 1.0, fatorPersistenciaUmidade = 1.0) {
       let penTemp = 0.0;
       let penUr = 0.0;
       let penChuva = 0.0;
@@ -694,38 +694,38 @@
 
       const hiTmax = calcularIndiceCalor(tmax, ur);
 
-      // Em regiões de calor seco/continental (Vale do São Francisco, Norte de MG, Sertão, Centro-Oeste),
-      // o ar a 32°C-37°C com umidade de 40-55% não infla tanto o Heat Index de Rothfusz, mas gera
-      // intenso estresse térmico por insolação e ar quente. Por isso combinamos o Heat Index com o
-      // excesso térmico radiativo acima de 26.5°C (100% espelhado com processador_clima_inmet.py):
+      // Calor Efetivo: combina o abafamento úmido (Heat Index) com o calor radiativo seco (> 26.5°C)
       const calorEfetivo = Math.max(hiTmax, tmax + Math.max(0.0, (tmax - 26.5) * 0.65));
 
-      // 1. Penalidade Térmica Diurna e Noturna
+      // 1. Penalidade Térmica: Calor fortemente punido; Frio suavemente punido
       if (calorEfetivo > p.hiMaxLimit) {
-        penTemp += Math.pow(calorEfetivo - p.hiMaxLimit, 1.22) * 1.95;
+        penTemp += Math.pow(calorEfetivo - p.hiMaxLimit, 1.20) * 1.80;
       } else if (tmax < p.tmaxMinLimit) {
-        penTemp += Math.pow(p.tmaxMinLimit - tmax, 1.12) * 1.10;
+        penTemp += Math.pow(p.tmaxMinLimit - tmax, 1.08) * 0.65;
       }
 
       if (tmin < p.tminLowLimit) {
-        penTemp += Math.pow(p.tminLowLimit - tmin, 1.15) * 1.25;
+        penTemp += Math.pow(p.tminLowLimit - tmin, 1.10) * 0.75;
       } else if (tmin > p.tminHighLimit) {
-        penTemp += Math.pow(tmin - p.tminHighLimit, 1.20) * 1.90;
+        penTemp += Math.pow(tmin - p.tminHighLimit, 1.18) * 1.75;
       }
 
-      // 2. Penalidade por Umidade Relativa Extrema
+      // 2. Penalidade por Umidade Relativa: Secura fortemente punida (amplificada por muitos meses secos);
+      // Alta umidade punida no calor ou quando persiste por muitos meses
       if (ur < p.urMinLimit) {
-        penUr += Math.pow(p.urMinLimit - ur, 1.25) * 0.75;
+        penUr += (Math.pow(p.urMinLimit - ur, 1.25) * 1.25) * fatorPersistenciaSeca;
       } else if (ur > p.urMaxLimit) {
-        const fator = tmax > 26.5 ? 0.85 : 0.45;
-        penUr += Math.pow(ur - p.urMaxLimit, 1.15) * fator;
+        const fatorAbafamento = tmax > 26.5 ? 1.05 : 0.45;
+        penUr += (Math.pow(ur - p.urMaxLimit, 1.18) * fatorAbafamento) * fatorPersistenciaUmidade;
       }
 
-      // 3. Penalidade por Regime de Chuvas
-      if (chuva > p.rainMaxLimit) {
-        penChuva += Math.pow((chuva - p.rainMaxLimit) / 30.0, 1.12) * 2.10;
-      } else if (chuva < p.rainMinLimit) {
-        penChuva += Math.pow((p.rainMinLimit - chuva) / 5.0, 1.10) * 1.20;
+      // 3. Penalidade por Regime de Chuvas: Seca (< 35mm) muito mais punida que chuva média (35–200mm isenta);
+      // Dilúvio (> 200mm) fortemente punido
+      if (chuva < p.rainMinLimit) {
+        const fatorArSeco = (ur < 60.0 || tmax > 27.0) ? 1.35 : 0.70;
+        penChuva += (Math.pow((p.rainMinLimit - chuva) / 5.0, 1.18) * 1.45 * fatorArSeco) * fatorPersistenciaSeca;
+      } else if (chuva > p.rainMaxLimit) {
+        penChuva += (Math.pow((chuva - p.rainMaxLimit) / 25.0, 1.22) * 2.25) * fatorPersistenciaUmidade;
       }
 
       // 4. Penalidade por Poluição Atmosférica (PM2.5 em µg/m³)
@@ -742,17 +742,17 @@
 
       // Curva de amortecimento assintótico para que apenas locais inviáveis à vida humana cheguem perto de zero
       let notaMes;
-      if (totalPenBruta <= 45.0) {
+      if (totalPenBruta <= 42.0) {
         notaMes = 100.0 - totalPenBruta;
       } else {
-        const excesso = totalPenBruta - 45.0;
-        notaMes = 55.0 * Math.exp(-excesso / 55.0);
+        const excesso = totalPenBruta - 42.0;
+        notaMes = 58.0 * Math.exp(-excesso / 62.0);
       }
       notaMes = Math.max(2.0, Math.min(100.0, notaMes));
 
       return {
         nota_mes: Math.round(notaMes * 10) / 10,
-        indice_calor_max: hiTmax,
+        indice_calor_max: Math.round(calorEfetivo * 10) / 10,
         pen_temp: Math.round(penTemp * 10) / 10,
         pen_ur: Math.round(penUr * 10) / 10,
         pen_chuva: Math.round(penChuva * 10) / 10,
@@ -916,8 +916,31 @@
         const penC = [];
         const penP = [];
 
+        // Contagem de meses com seca e meses muito úmidos/dilúvio ao longo do ano (efeito persistência)
+        let mesesSeca = 0;
+        let mesesUmidos = 0;
         for (let m = 0; m < 12; m++) {
-          const av = avaliarMes(s.tmax[m], s.tmin[m], s.ur[m], s.chuva_mm[m], s.pm25_ugm3[m], userParams);
+          if (s.chuva_mm[m] < userParams.rainMinLimit || s.ur[m] < userParams.urMinLimit) {
+            mesesSeca++;
+          }
+          if (s.ur[m] > userParams.urMaxLimit || s.chuva_mm[m] > userParams.rainMaxLimit) {
+            mesesUmidos++;
+          }
+        }
+        const fatorPersistenciaSeca = 1.0 + Math.max(0, mesesSeca - 2) * 0.20;
+        const fatorPersistenciaUmidade = 1.0 + Math.max(0, mesesUmidos - 4) * 0.12;
+
+        for (let m = 0; m < 12; m++) {
+          const av = avaliarMes(
+            s.tmax[m],
+            s.tmin[m],
+            s.ur[m],
+            s.chuva_mm[m],
+            s.pm25_ugm3[m],
+            userParams,
+            fatorPersistenciaSeca,
+            fatorPersistenciaUmidade
+          );
           notas.push(av.nota_mes);
           hiList.push(av.indice_calor_max);
           penT.push(av.pen_temp);
@@ -2121,7 +2144,7 @@
     // =========================================================================
     async function carregarDadosEstacoes() {
       try {
-        const res = await fetch(`./data/estacoes_clima_brasil.geojson?v=2.3`, { cache: "no-cache" });
+        const res = await fetch(`./data/estacoes_clima_brasil.geojson?v=2.4`, { cache: "no-cache" });
         if (res.ok) {
           const data = await res.json();
           return data.features || [];
