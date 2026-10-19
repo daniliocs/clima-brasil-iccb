@@ -151,6 +151,30 @@
     #mobileBottomSheet {
       transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
     }
+
+    /* Mobile Leaflet Controls layout: keep zoom & layers above the collapsed bottom sheet (17vh peek) */
+    @media (max-width: 1023px) {
+      .leaflet-bottom.leaflet-right {
+        bottom: calc(17vh + 18px) !important;
+        right: 12px !important;
+        z-index: 28 !important;
+      }
+      .leaflet-control-zoom {
+        box-shadow: 0 4px 14px rgba(15, 23, 42, 0.22) !important;
+        border: 1.5px solid rgba(203, 213, 225, 0.95) !important;
+        border-radius: 12px !important;
+        overflow: hidden !important;
+      }
+      .leaflet-control-zoom a {
+        width: 38px !important;
+        height: 38px !important;
+        line-height: 38px !important;
+        font-size: 19px !important;
+        background-color: rgba(255, 255, 255, 0.96) !important;
+        color: #1e293b !important;
+        font-weight: 700 !important;
+      }
+    }
   </style>
 </head>
 <body class="relative w-screen h-screen select-text antialiased">
@@ -167,17 +191,18 @@
         <span class="w-3 h-3 rounded-full bg-[#c85a32] inline-block"></span>
         <span class="font-display font-bold text-xs tracking-tight text-slate-900">ICCB</span>
       </div>
-      <div class="relative flex-1 min-w-0 flex items-center">
+      <div class="relative flex-1 min-w-0 flex items-center bg-slate-50 border-2 border-slate-300 rounded-xl px-2.5 py-1 transition focus-within:border-[#c85a32] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#c85a32]/20">
+        <svg class="w-3.5 h-3.5 text-slate-400 mr-1.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
         <input
           id="mobileSearchInput"
           type="search"
-          placeholder="Buscar cidade ou UF..."
-          class="w-full bg-transparent text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none pr-6"
+          placeholder="Buscar"
+          class="w-full bg-transparent text-xs sm:text-sm text-slate-800 placeholder:text-slate-500 font-medium focus:outline-none pr-5"
         />
         <button
           type="button"
           id="btnClearMobileSearch"
-          class="hidden absolute right-0 text-slate-400 hover:text-slate-600 w-5 h-5 rounded-full hover:bg-slate-200/60 flex items-center justify-center text-xs font-bold"
+          class="hidden absolute right-1.5 text-slate-400 hover:text-slate-600 w-5 h-5 rounded-full hover:bg-slate-200/60 flex items-center justify-center text-xs font-bold"
           title="Limpar busca"
         >✕</button>
       </div>
@@ -659,15 +684,46 @@
   </div>
 
   <!-- Scripts: Fallback Data + Leaflet + Chart.js -->
-  <script src="./data/estacoes_clima_brasil.js?v=2.5"></script>
+  <script src="./data/estacoes_clima_brasil.js?v=2.7"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
   <script>
     // =========================================================================
-    // 1. ESTADO GLOBAL E PARÂMETROS BIOCLIMÁTICOS (ICCB v2.4 CALIBRADO + POLUIÇÃO PM2.5)
+    // 1. ESTADO GLOBAL E PARÂMETROS BIOCLIMÁTICOS (ICCB v2.6 CALIBRADO + NEBULOSIDADE)
     // =========================================================================
     const MESES_ORDEM = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+
+    function normalizarTexto(str) {
+      return String(str || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim()
+        .toLowerCase();
+    }
+
+    const CIDADES_LITORANEAS_CONHECIDAS = new Set([
+      "santos", "ubatuba", "rio de janeiro", "cabo frio", "angra dos reis", "florianopolis",
+      "salvador", "recife", "fortaleza", "natal", "joao pessoa", "maceio", "aracaju",
+      "vitoria", "ilheus", "porto seguro", "balneario camboriu", "joinville", "paranagua",
+      "torres", "pelotas", "rio grande", "sao luis", "belem", "macapa", "itajai",
+      "tramandai", "paraty", "guaruja", "caraguatatuba", "sao sebastiao", "macae"
+    ]);
+
+    const UFS_COSTEIRAS = new Set([
+      "RJ", "SP", "ES", "BA", "SE", "AL", "PE", "PB", "RN", "CE", "PI", "MA", "PA", "AP", "SC", "PR", "RS"
+    ]);
+
+    function ehCidadeLitoraneaJs(nome, uf, altitudeM) {
+      const nomeNorm = normalizarTexto(nome).toLowerCase().trim();
+      for (const cit of CIDADES_LITORANEAS_CONHECIDAS) {
+        if (nomeNorm.includes(cit)) return true;
+      }
+      if (UFS_COSTEIRAS.has(String(uf).toUpperCase().trim()) && Number(altitudeM) <= 35.0) {
+        return true;
+      }
+      return false;
+    }
 
     const DEFAULT_PARAMS = {
       hiMaxLimit: 26.5,      // Limite de Calor Diurno / Heat Index (°C)
@@ -677,12 +733,14 @@
       urMinLimit: 59.0,      // Umidade Relativa Mínima Aceitável (%)
       urMaxLimit: 78.0,      // Umidade Relativa Máxima sem Abafamento (%)
       rainMaxLimit: 200.0,   // Teto de Chuva Mensal Confortável (mm)
-      rainMinLimit: 35.0,    // Piso de Seca Mensal (mm)
+      rainMinLimit: 60.0,    // Piso de Seca de Inverno (mm)
+      rainSevereLimit: 35.0, // Piso de Estiagem Crítica (< 35mm)
       pm25MaxLimit: 10.0,    // Limite Ideal de Poluição PM2.5 (µg/m³ - Diretriz OMS)
       weightTemp: 1.0,       // Multiplicador de peso Térmico
       weightUr: 1.0,         // Multiplicador de peso de Umidade
       weightRain: 1.0,       // Multiplicador de peso de Chuva
-      weightPollution: 1.0   // Multiplicador de peso de Poluição do Ar (PM2.5)
+      weightPollution: 1.0,  // Multiplicador de peso de Poluição do Ar (PM2.5)
+      weightNeb: 1.0         // Multiplicador de peso de Nebulosidade
     };
 
     const CAPITAIS_BRASIL_SET = new Set([
@@ -749,20 +807,33 @@
       return Math.round(Math.max(tempC, hiC) * 10) / 10;
     }
 
-    function avaliarMes(tmax, tmin, ur, chuva, pm25 = 8.0, p = userParams, fatorPersistenciaSeca = 1.0, fatorPersistenciaUmidade = 1.0) {
+    function avaliarMes(
+      tmax,
+      tmin,
+      ur,
+      chuva,
+      pm25 = 8.0,
+      nebulosidade = 50.0,
+      isLitoral = false,
+      mesIdx = 0,
+      p = userParams,
+      fatorPersistenciaSeca = 1.0,
+      fatorPersistenciaUmidade = 1.0
+    ) {
       let penTemp = 0.0;
       let penUr = 0.0;
       let penChuva = 0.0;
       let penPoluicao = 0.0;
+      let penNeb = 0.0;
 
       const hiTmax = calcularIndiceCalor(tmax, ur);
 
       // Calor Efetivo: combina o abafamento úmido (Heat Index) com o calor radiativo seco (> 26.5°C)
       const calorEfetivo = Math.max(hiTmax, tmax + Math.max(0.0, (tmax - 26.5) * 0.65));
 
-      // 1. Penalidade Térmica: Calor fortemente punido; Frio suavemente punido
+      // 1. Penalidade Térmica: Calor fortemente punido (especialmente noites tropicais); Frio suavemente punido
       if (calorEfetivo > p.hiMaxLimit) {
-        penTemp += Math.pow(calorEfetivo - p.hiMaxLimit, 1.20) * 1.80;
+        penTemp += Math.pow(calorEfetivo - p.hiMaxLimit, 1.20) * 1.85;
       } else if (tmax < p.tmaxMinLimit) {
         penTemp += Math.pow(p.tmaxMinLimit - tmax, 1.08) * 0.65;
       }
@@ -770,11 +841,10 @@
       if (tmin < p.tminLowLimit) {
         penTemp += Math.pow(p.tminLowLimit - tmin, 1.10) * 0.75;
       } else if (tmin > p.tminHighLimit) {
-        penTemp += Math.pow(tmin - p.tminHighLimit, 1.18) * 1.75;
+        penTemp += Math.pow(tmin - p.tminHighLimit, 1.18) * 1.95;
       }
 
-      // 2. Penalidade por Umidade Relativa: Secura fortemente punida (amplificada por muitos meses secos);
-      // Alta umidade punida no calor ou quando persiste por muitos meses
+      // 2. Penalidade por Umidade Relativa: Secura fortemente punida (amplificada por persistência)
       if (ur < p.urMinLimit) {
         penUr += (Math.pow(p.urMinLimit - ur, 1.25) * 1.25) * fatorPersistenciaSeca;
       } else if (ur > p.urMaxLimit) {
@@ -782,11 +852,17 @@
         penUr += (Math.pow(ur - p.urMaxLimit, 1.18) * fatorAbafamento) * fatorPersistenciaUmidade;
       }
 
-      // 3. Penalidade por Regime de Chuvas: Seca (< 35mm) muito mais punida que chuva média (35–200mm isenta);
-      // Dilúvio (> 200mm) fortemente punido
-      if (chuva < p.rainMinLimit) {
+      // 3. Penalidade por Regime de Chuvas: Seco (< 60mm) e Estiagem Crítica (< 35mm)
+      const rMinLimit = p.rainMinLimit || 60.0;
+      const rSevereLimit = p.rainSevereLimit || 35.0;
+      if (chuva < rMinLimit) {
         const fatorArSeco = (ur < 60.0 || tmax > 27.0) ? 1.35 : 0.70;
-        penChuva += (Math.pow((p.rainMinLimit - chuva) / 5.0, 1.18) * 1.45 * fatorArSeco) * fatorPersistenciaSeca;
+        const deficitSeco = (rMinLimit - chuva) / 10.0;
+        penChuva += (Math.pow(deficitSeco, 1.12) * 0.82 * fatorArSeco) * Math.pow(fatorPersistenciaSeca, 0.8);
+        if (chuva < rSevereLimit) {
+          const deficitSevero = (rSevereLimit - chuva) / 5.0;
+          penChuva += (Math.pow(deficitSevero, 1.20) * 0.90 * fatorArSeco) * fatorPersistenciaSeca;
+        }
       } else if (chuva > p.rainMaxLimit) {
         penChuva += (Math.pow((chuva - p.rainMaxLimit) / 25.0, 1.22) * 2.25) * fatorPersistenciaUmidade;
       }
@@ -796,14 +872,44 @@
         penPoluicao += Math.pow(pm25 - p.pm25MaxLimit, 1.12) * 0.65;
       }
 
-      penTemp *= p.weightTemp;
-      penUr *= p.weightUr;
-      penChuva *= p.weightRain;
-      penPoluicao *= p.weightPollution;
+      // 5. Penalidade Bioclimática por Nebulosidade (Cobertura de nuvens 0 a 100%)
+      const isInverno = (mesIdx === 5 || mesIdx === 6 || mesIdx === 7); // Jun, Jul, Ago
+      const isVerao = (mesIdx === 11 || mesIdx === 0 || mesIdx === 1 || mesIdx === 2); // Dez, Jan, Fev, Mar
+      if (isInverno) {
+        if (nebulosidade < 35.0) {
+          penNeb += Math.pow((35.0 - nebulosidade) / 5.0, 1.15) * 1.10;
+        } else if (nebulosidade > 85.0) {
+          penNeb += Math.pow((nebulosidade - 85.0) / 5.0, 1.10) * 0.85;
+        }
+      } else if (isVerao) {
+        if (isLitoral) {
+          if (nebulosidade > 65.0) {
+            penNeb += Math.pow((nebulosidade - 65.0) / 5.0, 1.12) * 1.25;
+          }
+        } else {
+          if (nebulosidade < 35.0 && tmax > 27.5) {
+            penNeb += Math.pow((35.0 - nebulosidade) / 5.0, 1.12) * 1.20;
+          } else if (nebulosidade > 78.0) {
+            penNeb += Math.pow((nebulosidade - 78.0) / 5.0, 1.10) * 0.95;
+          }
+        }
+      } else {
+        if (nebulosidade < 25.0 && tmax > 28.0) {
+          penNeb += Math.pow((25.0 - nebulosidade) / 5.0, 1.10) * 0.80;
+        } else if (nebulosidade > 82.0) {
+          penNeb += Math.pow((nebulosidade - 82.0) / 5.0, 1.10) * 0.80;
+        }
+      }
 
-      const totalPenBruta = penTemp + penUr + penChuva + penPoluicao;
+      penTemp *= (p.weightTemp !== undefined ? p.weightTemp : 1.0);
+      penUr *= (p.weightUr !== undefined ? p.weightUr : 1.0);
+      penChuva *= (p.weightRain !== undefined ? p.weightRain : 1.0);
+      penPoluicao *= (p.weightPollution !== undefined ? p.weightPollution : 1.0);
+      penNeb *= (p.weightNeb !== undefined ? p.weightNeb : 1.0);
 
-      // Curva de amortecimento assintótico para que apenas locais inviáveis à vida humana cheguem perto de zero
+      const totalPenBruta = penTemp + penUr + penChuva + penPoluicao + penNeb;
+
+      // Curva de amortecimento assintótico para reservas de habitabilidade
       let notaMes;
       if (totalPenBruta <= 42.0) {
         notaMes = 100.0 - totalPenBruta;
@@ -819,7 +925,8 @@
         pen_temp: Math.round(penTemp * 10) / 10,
         pen_ur: Math.round(penUr * 10) / 10,
         pen_chuva: Math.round(penChuva * 10) / 10,
-        pen_poluicao: Math.round(penPoluicao * 10) / 10
+        pen_poluicao: Math.round(penPoluicao * 10) / 10,
+        pen_nebulosidade: Math.round(penNeb * 10) / 10
       };
     }
 
@@ -966,24 +1073,40 @@
 
     function recalcularTodasEstacoes() {
       const t0 = performance.now();
+      const diasMes = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
       for (const feat of allFeatures) {
         const s = feat.properties.series_mensais;
         if (!s.pm25_ugm3 || s.pm25_ugm3.length !== 12) {
           s.pm25_ugm3 = [6.5, 6.5, 7.0, 7.5, 8.5, 9.5, 10.5, 12.0, 12.5, 10.0, 7.5, 6.5];
         }
+        if (!s.nebulosidade_pct || s.nebulosidade_pct.length !== 12) {
+          s.nebulosidade_pct = (s.insolacao_h || [180, 180, 180, 180, 180, 180, 180, 180, 180, 180, 180, 180]).map((ins, i) => {
+            const insMax = diasMes[i] * 11.8;
+            const fatorIns = Math.min(1.0, Math.max(0.1, ins / insMax));
+            let nebM = 100.0 * (1.0 - Math.pow(fatorIns, 0.88));
+            if (s.chuva_mm && s.chuva_mm[i] > 180.0) nebM = Math.max(nebM, 68.0);
+            return Math.round(Math.max(15.0, Math.min(90.0, nebM)) * 10) / 10;
+          });
+        }
+        const isLitoral = feat.properties.litoral !== undefined
+          ? feat.properties.litoral
+          : ehCidadeLitoraneaJs(feat.properties.nome, feat.properties.uf, feat.properties.altitude_m);
+        feat.properties.litoral = isLitoral;
+
         const notas = [];
         const hiList = [];
         const penT = [];
         const penU = [];
         const penC = [];
         const penP = [];
+        const penN = [];
 
         // Contagem de meses com seca e meses muito úmidos/dilúvio ao longo do ano (efeito persistência)
         let mesesSeca = 0;
         let mesesUmidos = 0;
         for (let m = 0; m < 12; m++) {
-          if (s.chuva_mm[m] < userParams.rainMinLimit || s.ur[m] < userParams.urMinLimit) {
+          if (s.chuva_mm[m] < (userParams.rainMinLimit || 60.0) || s.ur[m] < userParams.urMinLimit) {
             mesesSeca++;
           }
           if (s.ur[m] > userParams.urMaxLimit || s.chuva_mm[m] > userParams.rainMaxLimit) {
@@ -1000,6 +1123,9 @@
             s.ur[m],
             s.chuva_mm[m],
             s.pm25_ugm3[m],
+            s.nebulosidade_pct[m],
+            isLitoral,
+            m,
             userParams,
             fatorPersistenciaSeca,
             fatorPersistenciaUmidade
@@ -1010,6 +1136,7 @@
           penU.push(av.pen_ur);
           penC.push(av.pen_chuva);
           penP.push(av.pen_poluicao);
+          penN.push(av.pen_nebulosidade);
         }
 
         const mediaAnual = Math.round((notas.reduce((a, b) => a + b, 0) / 12.0) * 10) / 10;
@@ -1027,12 +1154,15 @@
         s.pen_ur_mensal = penU;
         s.pen_chuva_mensal = penC;
         s.pen_poluicao_mensal = penP;
+        s.pen_nebulosidade_mensal = penN;
 
         const r = feat.properties.resumo_anual;
         const pm25Media = Math.round((s.pm25_ugm3.reduce((a, b) => a + b, 0) / 12.0) * 10) / 10;
         const pm25Max = Math.round(Math.max(...s.pm25_ugm3) * 10) / 10;
+        const nebMedia = Math.round((s.nebulosidade_pct.reduce((a, b) => a + b, 0) / 12.0) * 10) / 10;
         r.pm25_media_anual = pm25Media;
         r.pm25_max_mensal = pm25Max;
+        r.nebulosidade_media_anual = nebMedia;
         r.qualidade_ar = classificarQualidadeAr(pm25Media, pm25Max);
         r.melhor_mes = `${MESES_ORDEM[bestIdx]} (${notas[bestIdx].toFixed(1)})`;
         r.pior_mes = `${MESES_ORDEM[worstIdx]} (${notas[worstIdx].toFixed(1)})`;
@@ -1040,7 +1170,8 @@
           temperatura: Math.round((penT.reduce((a, b) => a + b, 0) / 12.0) * 10) / 10,
           umidade: Math.round((penU.reduce((a, b) => a + b, 0) / 12.0) * 10) / 10,
           chuva: Math.round((penC.reduce((a, b) => a + b, 0) / 12.0) * 10) / 10,
-          poluicao: Math.round((penP.reduce((a, b) => a + b, 0) / 12.0) * 10) / 10
+          poluicao: Math.round((penP.reduce((a, b) => a + b, 0) / 12.0) * 10) / 10,
+          nebulosidade: Math.round((penN.reduce((a, b) => a + b, 0) / 12.0) * 10) / 10
         };
       }
 
@@ -1051,7 +1182,7 @@
 
       const dt = (performance.now() - t0).toFixed(2);
       const badge = document.getElementById("calcLatencyBadge");
-      if (badge) badge.textContent = `ICCB v2.1 • ${dt}ms`;
+      if (badge) badge.textContent = `ICCB v2.6 • ${dt}ms`;
     }
 
     // =========================================================================
@@ -1258,7 +1389,7 @@
             <div class="flex justify-between text-[10px] text-slate-400 mt-0.5"><span>100 mm/mês</span><span>260 mm/mês</span></div>
           </div>
 
-          <div class="pt-1 border-t border-amber-200/70 grid grid-cols-2 gap-2">
+          <div class="pt-1 border-t border-amber-200/70 grid grid-cols-2 sm:grid-cols-3 gap-2">
             <div>
               <label class="block text-[10px] font-bold text-slate-600 mb-0.5">Peso Temp. (<span id="${prefix}_val_weightTemp">${userParams.weightTemp.toFixed(1)}x</span>)</label>
               <input type="range" min="0.0" max="2.5" step="0.1" value="${userParams.weightTemp}" data-param="weightTemp" class="iccb-slider param-slider" />
@@ -1275,11 +1406,15 @@
               <label class="block text-[10px] font-bold text-slate-600 mb-0.5">Peso Chuva (<span id="${prefix}_val_weightRain">${userParams.weightRain.toFixed(1)}x</span>)</label>
               <input type="range" min="0.0" max="2.5" step="0.1" value="${userParams.weightRain}" data-param="weightRain" class="iccb-slider param-slider" />
             </div>
+            <div class="col-span-2 sm:col-span-1">
+              <label class="block text-[10px] font-bold text-slate-600 mb-0.5">Peso Nebulosidade (<span id="${prefix}_val_weightNeb">${(userParams.weightNeb || 1.0).toFixed(1)}x</span>)</label>
+              <input type="range" min="0.0" max="2.5" step="0.1" value="${userParams.weightNeb || 1.0}" data-param="weightNeb" class="iccb-slider param-slider" />
+            </div>
           </div>
 
           <div class="pt-1 flex justify-end">
             <button type="button" class="btn-reset-params px-2.5 py-1 rounded-lg bg-slate-200/80 hover:bg-slate-300 text-slate-700 font-semibold text-[11px] transition">
-              Restaurar Modelo Calibrado ICCB v2.0
+              Restaurar Modelo Calibrado ICCB v2.6
             </button>
           </div>
         </div>
@@ -1332,6 +1467,7 @@
         const elWP = document.getElementById(`${prefix}_val_weightPollution`);
         const elWU = document.getElementById(`${prefix}_val_weightUr`);
         const elWR = document.getElementById(`${prefix}_val_weightRain`);
+        const elWN = document.getElementById(`${prefix}_val_weightNeb`);
 
         if (elHi) elHi.textContent = `${userParams.hiMaxLimit.toFixed(1)}°C`;
         if (elPm) elPm.textContent = `${userParams.pm25MaxLimit.toFixed(1)} µg/m³`;
@@ -1342,6 +1478,7 @@
         if (elWP) elWP.textContent = `${userParams.weightPollution.toFixed(1)}x`;
         if (elWU) elWU.textContent = `${userParams.weightUr.toFixed(1)}x`;
         if (elWR) elWR.textContent = `${userParams.weightRain.toFixed(1)}x`;
+        if (elWN) elWN.textContent = `${(userParams.weightNeb || 1.0).toFixed(1)}x`;
       });
     }
 
@@ -1459,10 +1596,13 @@
       };
 
       const penPol = pen.poluicao || 0.0;
+      const penNeb = pen.nebulosidade || 0.0;
       const pctTemp = Math.min(100, Math.round((pen.temperatura / 28) * 100));
       const pctUr = Math.min(100, Math.round((pen.umidade / 28) * 100));
       const pctChuva = Math.min(100, Math.round((pen.chuva / 28) * 100));
       const pctPol = Math.min(100, Math.round((penPol / 28) * 100));
+      const pctNeb = Math.min(100, Math.round((penNeb / 28) * 100));
+      const totalPen = (pen.temperatura + pen.umidade + pen.chuva + penPol + penNeb).toFixed(1);
 
       return `
         <!-- KPI Summary Grid (2x2) -->
@@ -1485,9 +1625,9 @@
             <div class="text-[10px] ${r.ur_minima_mensal < 50 ? "text-amber-600 font-semibold" : "text-slate-500"}">Mín. mensal: ${r.ur_minima_mensal}%</div>
           </div>
           <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-2.5">
-            <div class="text-[10px] font-semibold uppercase text-slate-400">Chuva &amp; Sol</div>
+            <div class="text-[10px] font-semibold uppercase text-slate-400">Chuva &amp; Nebulosidade</div>
             <div class="font-mono font-bold text-sm text-slate-800 mt-0.5">${r.chuva_acumulada_anual_mm} mm</div>
-            <div class="text-[10px] text-slate-500">${r.insolacao_anual_h}h sol/ano</div>
+            <div class="text-[10px] text-slate-600 font-medium">${(r.nebulosidade_media_anual || 45).toFixed(0)}% nuvens méd • ${r.insolacao_anual_h}h sol</div>
           </div>
         </div>
 
@@ -1525,7 +1665,7 @@
         <div class="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 space-y-2">
           <div class="flex items-center justify-between">
             <h3 class="text-xs font-bold uppercase tracking-wider text-slate-600">Decomposição de Penalidades Médias</h3>
-            <span class="text-[11px] font-mono text-slate-500">-${(pen.temperatura + pen.umidade + pen.chuva + penPol).toFixed(1)} pts brutos/mês</span>
+            <span class="text-[11px] font-mono text-slate-500">-${totalPen} pts brutos/mês</span>
           </div>
           <div class="space-y-1.5 text-xs">
             <div>
@@ -1557,11 +1697,20 @@
             </div>
             <div>
               <div class="flex justify-between text-[11px] mb-0.5">
-                <span class="font-medium text-slate-700">Regime de Chuvas (Dilúvio &gt;${userParams.rainMaxLimit}mm ou Seca &lt;${userParams.rainMinLimit}mm)</span>
+                <span class="font-medium text-slate-700">Regime de Chuvas (Dilúvio &gt;${userParams.rainMaxLimit}mm ou Seca &lt;${userParams.rainMinLimit || 60}mm)</span>
                 <span class="font-mono font-semibold text-sky-700">-${pen.chuva.toFixed(1)} pts</span>
               </div>
               <div class="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
                 <div class="h-full bg-[#1f5a6e]" style="width:${pctChuva}%"></div>
+              </div>
+            </div>
+            <div>
+              <div class="flex justify-between text-[11px] mb-0.5">
+                <span class="font-medium text-slate-700">Nebulosidade Bioclimática (Inverno esturricado / Mormaço)</span>
+                <span class="font-mono font-semibold text-slate-600">-${penNeb.toFixed(1)} pts</span>
+              </div>
+              <div class="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
+                <div class="h-full bg-slate-500" style="width:${pctNeb}%"></div>
               </div>
             </div>
           </div>
@@ -2222,10 +2371,11 @@
       statusEl.textContent = "Consultando satélite NASA POWER Climatology...";
 
       try {
-        const url = `https://power.larc.nasa.gov/api/temporal/climatology/point?parameters=T2M,T2M_MAX,T2M_MIN,T2M_RANGE,RH2M,PRECTOTCORR,ALLSKY_SFC_SW_DWN&community=SB&longitude=${lon}&latitude=${lat}&format=JSON`;
+        const url = `https://power.larc.nasa.gov/api/temporal/climatology/point?parameters=T2M,T2M_MAX,T2M_MIN,T2M_RANGE,RH2M,PRECTOTCORR,ALLSKY_SFC_SW_DWN,CLOUD_AMT&community=SB&longitude=${lon}&latitude=${lat}&format=JSON`;
         const resp = await fetch(url);
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const json = await resp.json();
+        const param = (json.properties && json.properties.parameter) || {};
         const elevGrid = json.geometry && json.geometry.coordinates && json.geometry.coordinates[2]
           ? Number(json.geometry.coordinates[2])
           : altInput;
@@ -2264,7 +2414,12 @@
           const rad = param.ALLSKY_SFC_SW_DWN && param.ALLSKY_SFC_SW_DWN[k] > 0 ? param.ALLSKY_SFC_SW_DWN[k] : 5.2;
           return Math.round(Math.max(95, Math.min(310, rad * dias[i] * 1.25)));
         });
+        const nebulosidade = keys.map((k) => {
+          const val = param.CLOUD_AMT && param.CLOUD_AMT[k] !== undefined ? param.CLOUD_AMT[k] : 50.0;
+          return Math.round(val * 10) / 10;
+        });
         const pm25Padrao = ur.map((u) => Math.round((Math.max(5.2, 7.0 + Math.max(0, (68.0 - u) * 0.35))) * 10) / 10);
+        const isLitoral = ehCidadeLitoraneaJs(nome, uf, elev);
 
         const newId = `NASA_${nomeNorm.replace(/[^a-z0-9]/g, "").slice(0, 8).toUpperCase()}_${uf}`;
         const newFeature = {
@@ -2276,6 +2431,7 @@
             uf,
             regiao: "NASA POWER",
             altitude_m: elev,
+            litoral: isLitoral,
             fonte_dados: "NASA POWER Climatology (Satélite)",
             nota_conforto_anual: 0,
             classificacao: "",
@@ -2287,6 +2443,7 @@
               ur_minima_mensal: Math.min(...ur),
               chuva_acumulada_anual_mm: Math.round(chuva.reduce((a, b) => a + b, 0)),
               insolacao_anual_h: insolacao.reduce((a, b) => a + b, 0),
+              nebulosidade_media_anual: Math.round((nebulosidade.reduce((a, b) => a + b, 0) / 12) * 10) / 10,
               pm25_media_anual: Math.round((pm25Padrao.reduce((a, b) => a + b, 0) / 12) * 10) / 10,
               pm25_max_mensal: Math.max(...pm25Padrao),
               qualidade_ar: "Bom (Padrão OMS)",
@@ -2298,7 +2455,7 @@
               },
               melhor_mes: "",
               pior_mes: "",
-              penalidades_medias: { temperatura: 0, umidade: 0, chuva: 0, poluicao: 0 }
+              penalidades_medias: { temperatura: 0, umidade: 0, chuva: 0, poluicao: 0, nebulosidade: 0 }
             },
             series_mensais: {
               meses: MESES_ORDEM,
@@ -2308,6 +2465,7 @@
               ur,
               chuva_mm: chuva,
               insolacao_h: insolacao,
+              nebulosidade_pct: nebulosidade,
               pm25_ugm3: pm25Padrao,
               nota_mensal: []
             }

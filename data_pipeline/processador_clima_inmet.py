@@ -9,7 +9,7 @@ Gera `public/data/estacoes_clima_brasil.geojson` e `public/data/estacoes_clima_b
 import json
 import unicodedata
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional, Tuple
 import numpy as np
 import pandas as pd
 
@@ -50,22 +50,30 @@ def avaliar_mes(
     ur: float,
     chuva: float,
     pm25: float = 8.0,
+    nebulosidade: float = 50.0,
+    is_litoral: bool = False,
+    mes_idx: int = 0,
     fator_persistencia_seca: float = 1.0,
     fator_persistencia_umidade: float = 1.0,
 ) -> Dict[str, float]:
     """
-    Avalia o conforto bioclimático e ambiental de um mês (0 a 100) no modelo ICCB v2.4 calibrado.
+    Avalia o conforto bioclimático e ambiental de um mês (0 a 100) no modelo ICCB v2.6 calibrado.
     Equação 100% espelhada com `avaliarMes()` no frontend (`public/index.html`).
     Diretrizes do autor do índice:
     1. Pune muito mais o calor diurno/noturno do que o frio.
-    2. Pune muito mais a secura (ar seco < 59% e falta de chuva < 35mm) do que uma quantidade média de chuva (35–200mm).
+    2. Pune muito mais a secura (ar seco < 59% e falta de chuva < 60mm e < 35mm) do que uma quantidade média de chuva (60–200mm).
     3. Aplica um agravante progressivo de persistência (`fator_persistencia_seca`) para cidades com muitos meses de seca no ano (ex: Brasília, Goiânia, Norte de MG).
     4. Pune severamente dilúvios (> 200mm) e alta umidade persistente (> 78%, especialmente abafada).
+    5. Nebulosidade bioclimática:
+       - Invernos mais nublados são mais agradáveis (protegem da radiação UV seca); céu esturricado (<35%) é punido.
+       - Verões mistos (40-65% de nuvens) no interior filtram o sol abrasador sem mormaço contínuo.
+       - No litoral, o verão ensolarado é prioridade para praia; céu encoberto (>65%) gera mormaço e frustração.
     """
     pen_temp = 0.0
     pen_ur = 0.0
     pen_chuva = 0.0
     pen_poluicao = 0.0
+    pen_neb = 0.0
 
     hi_tmax = calcular_indice_calor(tmax, ur)
 
@@ -77,23 +85,24 @@ def avaliar_mes(
     ur_min_limit = 59.0
     ur_max_limit = 78.0
     rain_max_limit = 200.0
-    rain_min_limit = 35.0
+    rain_min_limit = 60.0
+    rain_severe_limit = 35.0
     pm25_max_limit = 10.0
 
     # Sensação térmica diurna efetiva: considera tanto o abafamento úmido (Heat Index)
     # quanto a insolação/calor seco de tardes escaldantes (>26.5°C) mesmo com baixa umidade
     calor_efetivo = max(hi_tmax, tmax + max(0.0, (tmax - 26.5) * 0.65))
 
-    # 1. Temperatura: Calor fortemente punido; Frio suavemente punido
+    # 1. Temperatura: Calor fortemente punido (especialmente noites tropicais abafadas); Frio suavemente punido
     if calor_efetivo > hi_max_limit:
-        pen_temp += ((calor_efetivo - hi_max_limit) ** 1.20) * 1.80
+        pen_temp += ((calor_efetivo - hi_max_limit) ** 1.20) * 1.85
     elif tmax < tmax_min_limit:
         pen_temp += ((tmax_min_limit - tmax) ** 1.08) * 0.65
 
     if tmin < tmin_low_limit:
         pen_temp += ((tmin_low_limit - tmin) ** 1.10) * 0.75
     elif tmin > tmin_high_limit:
-        pen_temp += ((tmin - tmin_high_limit) ** 1.18) * 1.75
+        pen_temp += ((tmin - tmin_high_limit) ** 1.18) * 1.95
 
     # 2. Umidade Relativa: Secura fortemente punida (amplificada por muitos meses secos);
     # Alta umidade punida quando abafada ou persistente por muitos meses
@@ -103,11 +112,18 @@ def avaliar_mes(
         fator_abafamento = 1.05 if tmax > 26.5 else 0.45
         pen_ur += (((ur - ur_max_limit) ** 1.18) * fator_abafamento) * fator_persistencia_umidade
 
-    # 3. Precipitação Mensal: Seca (< 35mm) fortemente punida (especialmente com ar seco/quente e persistente);
-    # Chuva média (35–200mm) isenta; Dilúvio (> 200mm) fortemente punido
+    # 3. Precipitação Mensal:
+    # - Seco (< 60mm): punição moderada por déficit pluviométrico
+    # - Muito seco (< 35mm): punição adicional calibrada por estiagem de inverno
+    # - Chuva média confortável (60–200mm): isenta
+    # - Dilúvio (> 200mm): fortemente punido
     if chuva < rain_min_limit:
         fator_ar_seco = 1.35 if (ur < 60.0 or tmax > 27.0) else 0.70
-        pen_chuva += ((((rain_min_limit - chuva) / 5.0) ** 1.18) * 1.45 * fator_ar_seco) * fator_persistencia_seca
+        deficit_seco = (rain_min_limit - chuva) / 10.0
+        pen_chuva += ((deficit_seco ** 1.12) * 0.82 * fator_ar_seco) * (fator_persistencia_seca ** 0.8)
+        if chuva < rain_severe_limit:
+            deficit_severo = (rain_severe_limit - chuva) / 5.0
+            pen_chuva += ((deficit_severo ** 1.20) * 0.90 * fator_ar_seco) * fator_persistencia_seca
     elif chuva > rain_max_limit:
         pen_chuva += ((((chuva - rain_max_limit) / 25.0) ** 1.22) * 2.25) * fator_persistencia_umidade
 
@@ -115,7 +131,30 @@ def avaliar_mes(
     if pm25 > pm25_max_limit:
         pen_poluicao += ((pm25 - pm25_max_limit) ** 1.12) * 0.65
 
-    total_pen_bruta = pen_temp + pen_ur + pen_chuva + pen_poluicao
+    # 5. Nebulosidade Mensal (0 a 100% de cobertura de nuvens):
+    is_inverno = mes_idx in (5, 6, 7) # Jun, Jul, Ago
+    is_verao = mes_idx in (11, 0, 1, 2) # Dez, Jan, Fev, Mar
+    if is_inverno:
+        if nebulosidade < 35.0:
+            pen_neb += (((35.0 - nebulosidade) / 5.0) ** 1.15) * 1.10
+        elif nebulosidade > 85.0:
+            pen_neb += (((nebulosidade - 85.0) / 5.0) ** 1.10) * 0.85
+    elif is_verao:
+        if is_litoral:
+            if nebulosidade > 65.0:
+                pen_neb += (((nebulosidade - 65.0) / 5.0) ** 1.12) * 1.25
+        else:
+            if nebulosidade < 35.0 and tmax > 27.5:
+                pen_neb += (((35.0 - nebulosidade) / 5.0) ** 1.12) * 1.20
+            elif nebulosidade > 78.0:
+                pen_neb += (((nebulosidade - 78.0) / 5.0) ** 1.10) * 0.95
+    else:
+        if nebulosidade < 25.0 and tmax > 28.0:
+            pen_neb += (((25.0 - nebulosidade) / 5.0) ** 1.10) * 0.80
+        elif nebulosidade > 82.0:
+            pen_neb += (((nebulosidade - 82.0) / 5.0) ** 1.10) * 0.80
+
+    total_pen_bruta = pen_temp + pen_ur + pen_chuva + pen_poluicao + pen_neb
 
     # Amortecimento assintótico suave para reservas de habitabilidade:
     if total_pen_bruta <= 42.0:
@@ -133,6 +172,7 @@ def avaliar_mes(
         "pen_ur": round(pen_ur, 1),
         "pen_chuva": round(pen_chuva, 1),
         "pen_poluicao": round(pen_poluicao, 1),
+        "pen_nebulosidade": round(pen_neb, 1),
     }
 
 
@@ -350,16 +390,58 @@ CAPITAIS_ESTADUAIS = {
     ("São Paulo", "SP"), ("Aracaju", "SE"), ("Palmas", "TO"),
 }
 
+DIAS_NO_MES = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+
+CIDADES_LITORANEAS_CONHECIDAS = {
+    "santos", "ubatuba", "rio de janeiro", "cabo frio", "angra dos reis", "florianópolis",
+    "salvador", "recife", "fortaleza", "natal", "joão pessoa", "maceió", "aracaju",
+    "vitória", "ilhéus", "porto seguro", "balneário camboriú", "joinville", "paranaguá",
+    "torres", "pelotas", "rio grande", "são luís", "belém", "macapá", "itajaí",
+    "tramandaí", "paraty", "guarujá", "caraguatatuba", "são sebastião", "macaé"
+}
+
+UFS_COSTEIRAS = {
+    "RJ", "SP", "ES", "BA", "SE", "AL", "PE", "PB", "RN", "CE", "PI", "MA", "PA", "AP", "SC", "PR", "RS"
+}
+
+
+def eh_cidade_litoranea(nome: str, uf: str, altitude_m: float) -> bool:
+    """Verifica se o município é costeiro / litorâneo para fins de dinâmica bioclimática de verão."""
+    nome_norm = nome.lower().strip()
+    if any(c in nome_norm for c in CIDADES_LITORANEAS_CONHECIDAS):
+        return True
+    if uf in UFS_COSTEIRAS and altitude_m <= 35.0:
+        return True
+    return False
+
+
+def estimar_nebulosidade_de_insolacao(insol_list: List[int], chuva_list: Optional[List[float]] = None) -> List[float]:
+    """
+    Estima a cobertura média mensal de nuvens (0 a 100%) a partir das horas de insolação astronômica
+    e precipitação, com base na relação empírica de Ångström-Prescott validada contra o satélite NASA POWER CLOUD_AMT.
+    """
+    neb = []
+    for i, (ins, dias) in enumerate(zip(insol_list, DIAS_NO_MES)):
+        ins_max = dias * 11.8
+        fator_ins = min(1.0, max(0.1, float(ins) / ins_max))
+        neb_m = 100.0 * (1.0 - (fator_ins ** 0.88))
+        if chuva_list and chuva_list[i] > 180.0:
+            neb_m = max(neb_m, 68.0)
+        neb.append(round(max(15.0, min(90.0, float(neb_m))), 1))
+    return neb
+
 
 def processar_estacoes(estacoes_brutas: List[Dict[str, Any]]) -> Dict[str, Any]:
     features = []
     for est in estacoes_brutas:
         notas_mensais, hi_mensais = [], []
-        pen_t_list, pen_u_list, pen_c_list, pen_p_list = [], [], [], []
+        pen_t_list, pen_u_list, pen_c_list, pen_p_list, pen_n_list = [], [], [], [], []
         pm25_mensal = est.get("pm25") or obter_pm25_estacao(est)
+        neb_mensal = est.get("nebulosidade") or estimar_nebulosidade_de_insolacao(est["insolacao"], est["chuva"])
+        is_litoral = eh_cidade_litoranea(est["nome"], est["uf"], float(est.get("alt", 0.0)))
 
-        # Contagem de meses com seca (< 35mm ou UR < 59%) e meses muito úmidos/dilúvio (> 78% ou > 200mm)
-        meses_seca = sum(1 for u, c in zip(est["ur"], est["chuva"]) if c < 35.0 or u < 59.0)
+        # Contagem de meses com seca (< 60mm ou UR < 59%) e meses muito úmidos/dilúvio (> 78% ou > 200mm)
+        meses_seca = sum(1 for u, c in zip(est["ur"], est["chuva"]) if c < 60.0 or u < 59.0)
         meses_umidos = sum(1 for u, c in zip(est["ur"], est["chuva"]) if u > 78.0 or c > 200.0)
         fator_persistencia_seca = 1.0 + max(0, meses_seca - 2) * 0.20
         fator_persistencia_umidade = 1.0 + max(0, meses_umidos - 4) * 0.12
@@ -370,7 +452,10 @@ def processar_estacoes(estacoes_brutas: List[Dict[str, Any]]) -> Dict[str, Any]:
                 est["tmin"][m],
                 est["ur"][m],
                 est["chuva"][m],
-                pm25_mensal[m],
+                pm25=pm25_mensal[m],
+                nebulosidade=neb_mensal[m],
+                is_litoral=is_litoral,
+                mes_idx=m,
                 fator_persistencia_seca=fator_persistencia_seca,
                 fator_persistencia_umidade=fator_persistencia_umidade,
             )
@@ -380,6 +465,7 @@ def processar_estacoes(estacoes_brutas: List[Dict[str, Any]]) -> Dict[str, Any]:
             pen_u_list.append(av["pen_ur"])
             pen_c_list.append(av["pen_chuva"])
             pen_p_list.append(av["pen_poluicao"])
+            pen_n_list.append(av["pen_nebulosidade"])
 
         nota_anual = round(float(np.mean(notas_mensais)), 1)
         melhor_idx = int(np.argmax(notas_mensais))
@@ -398,6 +484,7 @@ def processar_estacoes(estacoes_brutas: List[Dict[str, Any]]) -> Dict[str, Any]:
                 "uf": est["uf"],
                 "regiao": est["regiao"],
                 "capital": is_capital,
+                "litoral": is_litoral,
                 "altitude_m": est["alt"],
                 "fonte_dados": est.get("fonte_dados", "INMET 1991–2020 (Oficial)"),
                 "nota_conforto_anual": nota_anual,
@@ -410,6 +497,7 @@ def processar_estacoes(estacoes_brutas: List[Dict[str, Any]]) -> Dict[str, Any]:
                     "ur_minima_mensal": round(float(np.min(est["ur"])), 1),
                     "chuva_acumulada_anual_mm": round(float(np.sum(est["chuva"])), 0),
                     "insolacao_anual_h": int(np.sum(est["insolacao"])),
+                    "nebulosidade_media_anual": round(float(np.mean(neb_mensal)), 1),
                     "pm25_media_anual": pm25_medio,
                     "pm25_max_mensal": pm25_max,
                     "qualidade_ar": classificar_qualidade_ar(pm25_medio, pm25_max),
@@ -421,6 +509,7 @@ def processar_estacoes(estacoes_brutas: List[Dict[str, Any]]) -> Dict[str, Any]:
                         "umidade": round(float(np.mean(pen_u_list)), 1),
                         "chuva": round(float(np.mean(pen_c_list)), 1),
                         "poluicao": round(float(np.mean(pen_p_list)), 1),
+                        "nebulosidade": round(float(np.mean(pen_n_list)), 1),
                     },
                 },
                 "series_mensais": {
@@ -431,12 +520,14 @@ def processar_estacoes(estacoes_brutas: List[Dict[str, Any]]) -> Dict[str, Any]:
                     "ur": est["ur"],
                     "chuva_mm": est["chuva"],
                     "insolacao_h": est["insolacao"],
+                    "nebulosidade_pct": neb_mensal,
                     "pm25_ugm3": pm25_mensal,
                     "nota_mensal": notas_mensais,
                     "pen_temp_mensal": pen_t_list,
                     "pen_ur_mensal": pen_u_list,
                     "pen_chuva_mensal": pen_c_list,
                     "pen_poluicao_mensal": pen_p_list,
+                    "pen_nebulosidade_mensal": pen_n_list,
                 },
             },
         })
