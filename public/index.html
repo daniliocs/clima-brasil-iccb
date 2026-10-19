@@ -167,12 +167,20 @@
         <span class="w-3 h-3 rounded-full bg-[#c85a32] inline-block"></span>
         <span class="font-display font-bold text-xs tracking-tight text-slate-900">ICCB</span>
       </div>
-      <input
-        id="mobileSearchInput"
-        type="search"
-        placeholder="Buscar cidade ou UF..."
-        class="flex-1 min-w-0 bg-transparent text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none"
-      />
+      <div class="relative flex-1 min-w-0 flex items-center">
+        <input
+          id="mobileSearchInput"
+          type="search"
+          placeholder="Buscar cidade ou UF..."
+          class="w-full bg-transparent text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none pr-6"
+        />
+        <button
+          type="button"
+          id="btnClearMobileSearch"
+          class="hidden absolute right-0 text-slate-400 hover:text-slate-600 w-5 h-5 rounded-full hover:bg-slate-200/60 flex items-center justify-center text-xs font-bold"
+          title="Limpar busca"
+        >✕</button>
+      </div>
       <button
         type="button"
         id="btnOpenMobileSliders"
@@ -290,13 +298,19 @@
     <!-- Search & Region Filter -->
     <div class="p-3 border-b border-slate-200/80 bg-slate-50/70 space-y-2">
       <div class="relative">
-        <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
         <input
           id="desktopSearchInput"
           type="search"
           placeholder="Buscar entre as 260 cidades (ex: Pirapora, Curitiba)..."
-          class="w-full pl-9 pr-3 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#1f5a6e] text-slate-800 placeholder:text-slate-400"
+          class="w-full pl-9 pr-8 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#1f5a6e] text-slate-800 placeholder:text-slate-400"
         />
+        <button
+          type="button"
+          id="btnClearDesktopSearch"
+          class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 w-5 h-5 rounded-full hover:bg-slate-100 flex items-center justify-center text-xs font-bold transition"
+          title="Limpar busca"
+        >✕</button>
       </div>
       <div class="flex items-center gap-1 overflow-x-auto scroller pb-0.5" id="regionFilterBar">
         <button type="button" data-region="TOP20" class="region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-[#1f5a6e] text-white shrink-0">Top 20</button>
@@ -330,8 +344,16 @@
 
       <!-- Ranking Header -->
       <div class="px-4 py-2 bg-slate-100/80 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-500 sticky top-0 z-10 backdrop-blur-sm">
-        <span id="rankingCountLabel">Ranking das Cidades (46)</span>
-        <span>Nota ICCB</span>
+        <div class="flex items-center gap-1.5 min-w-0">
+          <span id="rankingCountLabel" class="truncate">Ranking das Cidades (Top 20)</span>
+          <button
+            type="button"
+            id="btnResetSearchBadge"
+            class="hidden shrink-0 px-1.5 py-0.5 rounded-md bg-amber-100 text-[#c85a32] hover:bg-amber-200 text-[10px] font-bold normal-case transition"
+            title="Limpar busca de texto"
+          >✕ Limpar</button>
+        </div>
+        <span class="shrink-0">Nota ICCB</span>
       </div>
 
       <!-- Ranking List -->
@@ -475,17 +497,58 @@
         </div>
       </div>
 
-      <!-- Selectors Bar -->
-      <div class="p-4 bg-slate-50 border-b border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div class="flex items-center gap-2 bg-white p-2.5 rounded-xl border-2 border-[#c85a32]">
-          <span class="w-3.5 h-3.5 rounded-full bg-[#c85a32] shrink-0"></span>
-          <label for="compareSelectA" class="text-xs font-bold text-slate-500 shrink-0">Cidade A:</label>
-          <select id="compareSelectA" class="flex-1 text-sm font-bold text-slate-900 bg-transparent focus:outline-none"></select>
+      <!-- Selectors Bar com Autocomplete e Busca em Tempo Real -->
+      <div class="p-4 bg-slate-50 border-b border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-3 relative z-30">
+        <!-- Autocomplete Cidade A -->
+        <div class="relative" id="autocompleteContainerA">
+          <div class="flex items-center gap-2 bg-white p-2.5 rounded-2xl border-2 border-[#c85a32] shadow-sm transition-all focus-within:ring-2 focus-within:ring-[#c85a32]/25">
+            <span class="w-3.5 h-3.5 rounded-full bg-[#c85a32] shrink-0"></span>
+            <label for="compareInputA" class="text-xs font-bold text-slate-500 shrink-0">Cidade A:</label>
+            <input
+              type="text"
+              id="compareInputA"
+              class="flex-1 min-w-0 text-xs md:text-sm font-bold text-slate-900 bg-transparent focus:outline-none placeholder:font-normal placeholder:text-slate-400"
+              placeholder="Digite para buscar cidade A (ex: Pirapora, Brasília)..."
+              autocomplete="off"
+            />
+            <button
+              type="button"
+              id="btnClearCompareA"
+              class="text-slate-400 hover:text-slate-600 w-5 h-5 rounded-full hover:bg-slate-100 flex items-center justify-center text-xs font-bold shrink-0 transition"
+              title="Trocar cidade A"
+            >✕</button>
+          </div>
+          <input type="hidden" id="compareSelectA" value="83377" />
+          <div
+            id="compareDropdownA"
+            class="hidden absolute left-0 right-0 top-full mt-1.5 z-50 bg-white rounded-2xl shadow-2xl border border-slate-200 max-h-64 overflow-y-auto scroller divide-y divide-slate-100"
+          ></div>
         </div>
-        <div class="flex items-center gap-2 bg-white p-2.5 rounded-xl border-2 border-[#1f5a6e]">
-          <span class="w-3.5 h-3.5 rounded-full bg-[#1f5a6e] shrink-0"></span>
-          <label for="compareSelectB" class="text-xs font-bold text-slate-500 shrink-0">Cidade B:</label>
-          <select id="compareSelectB" class="flex-1 text-sm font-bold text-slate-900 bg-transparent focus:outline-none"></select>
+
+        <!-- Autocomplete Cidade B -->
+        <div class="relative" id="autocompleteContainerB">
+          <div class="flex items-center gap-2 bg-white p-2.5 rounded-2xl border-2 border-[#1f5a6e] shadow-sm transition-all focus-within:ring-2 focus-within:ring-[#1f5a6e]/25">
+            <span class="w-3.5 h-3.5 rounded-full bg-[#1f5a6e] shrink-0"></span>
+            <label for="compareInputB" class="text-xs font-bold text-slate-500 shrink-0">Cidade B:</label>
+            <input
+              type="text"
+              id="compareInputB"
+              class="flex-1 min-w-0 text-xs md:text-sm font-bold text-slate-900 bg-transparent focus:outline-none placeholder:font-normal placeholder:text-slate-400"
+              placeholder="Digite para buscar cidade B (ex: Florianópolis, Curitiba)..."
+              autocomplete="off"
+            />
+            <button
+              type="button"
+              id="btnClearCompareB"
+              class="text-slate-400 hover:text-slate-600 w-5 h-5 rounded-full hover:bg-slate-100 flex items-center justify-center text-xs font-bold shrink-0 transition"
+              title="Trocar cidade B"
+            >✕</button>
+          </div>
+          <input type="hidden" id="compareSelectB" value="83536" />
+          <div
+            id="compareDropdownB"
+            class="hidden absolute left-0 right-0 top-full mt-1.5 z-50 bg-white rounded-2xl shadow-2xl border border-slate-200 max-h-64 overflow-y-auto scroller divide-y divide-slate-100"
+          ></div>
         </div>
       </div>
 
@@ -596,7 +659,7 @@
   </div>
 
   <!-- Scripts: Fallback Data + Leaflet + Chart.js -->
-  <script src="./data/estacoes_clima_brasil.js?v=2.4"></script>
+  <script src="./data/estacoes_clima_brasil.js?v=2.5"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
@@ -1764,28 +1827,154 @@
     }
 
     // =========================================================================
-    // 6. COMPARADOR LADO A LADO (CIDADE A vs. CIDADE B)
+    // 6. COMPARADOR LADO A LADO (CIDADE A vs. CIDADE B COM AUTOCOMPLETE)
     // =========================================================================
+    function formatarTextoCidadeComparador(feat) {
+      if (!feat) return "";
+      const p = feat.properties;
+      return `#${String(p.ranking).padStart(2, "0")} ${p.nome} - ${p.uf} (ICCB ${p.nota_conforto_anual.toFixed(1)} • ${p.altitude_m}m)`;
+    }
+
+    function setCompareCity(slot, stationId, shouldRender = true) {
+      const hiddenInput = document.getElementById(`compareSelect${slot}`);
+      const textInput = document.getElementById(`compareInput${slot}`);
+      const dropdown = document.getElementById(`compareDropdown${slot}`);
+      const clearBtn = document.getElementById(`btnClearCompare${slot}`);
+      if (!hiddenInput || !textInput) return;
+
+      const feat = allFeatures.find((f) => String(f.properties.id) === String(stationId)) || allFeatures[0];
+      if (!feat) return;
+
+      hiddenInput.value = feat.properties.id;
+      textInput.value = formatarTextoCidadeComparador(feat);
+      if (clearBtn) clearBtn.classList.remove("hidden");
+      if (dropdown) dropdown.classList.add("hidden");
+
+      if (shouldRender) {
+        renderizarComparacao();
+      }
+    }
+
+    function popularDropdownComparador(slot, query = "") {
+      const dropdown = document.getElementById(`compareDropdown${slot}`);
+      if (!dropdown) return;
+
+      const q = normalizarTexto(query);
+      const matches = allFeatures.filter((f) => {
+        if (!q) return true;
+        const p = f.properties;
+        return (
+          normalizarTexto(p.nome).includes(q) ||
+          normalizarTexto(p.uf).includes(q) ||
+          normalizarTexto(p.regiao).includes(q) ||
+          normalizarTexto(p.id).includes(q)
+        );
+      });
+
+      if (matches.length === 0) {
+        dropdown.innerHTML = `<div class="p-3 text-center text-xs text-slate-400">Nenhuma cidade encontrada para "${query}".</div>`;
+        dropdown.classList.remove("hidden");
+        return;
+      }
+
+      const itensHtml = matches.slice(0, 40).map((f) => {
+        const p = f.properties;
+        const cor = corPorNota(p.nota_conforto_anual);
+        const isCurrent = String(document.getElementById(`compareSelect${slot}`)?.value) === String(p.id);
+        return `
+          <button
+            type="button"
+            data-slot="${slot}"
+            data-id="${p.id}"
+            class="compare-item-btn w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center justify-between gap-2 transition ${isCurrent ? "bg-amber-50/70" : ""}"
+          >
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="font-mono text-xs font-bold text-slate-400 shrink-0">#${String(p.ranking).padStart(2, "0")}</span>
+              <div class="min-w-0">
+                <div class="font-bold text-xs text-slate-900 truncate">${p.nome} <span class="text-slate-400 font-normal">• ${p.uf}</span></div>
+                <div class="text-[10px] text-slate-500">${p.altitude_m}m • Região ${p.regiao}</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0">
+              <span class="px-2 py-0.5 rounded text-[11px] font-mono font-bold" style="background:${cor.bg};color:${cor.text};">
+                ${p.nota_conforto_anual.toFixed(1)}
+              </span>
+              <span class="text-[10px] text-slate-400 hidden sm:inline">${p.classificacao}</span>
+            </div>
+          </button>
+        `;
+      }).join("");
+
+      dropdown.innerHTML = itensHtml;
+      dropdown.classList.remove("hidden");
+
+      dropdown.querySelectorAll(".compare-item-btn").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const cityId = btn.getAttribute("data-id");
+          setCompareCity(slot, cityId, true);
+        });
+      });
+    }
+
+    function setupAutocompleteComparador() {
+      ["A", "B"].forEach((slot) => {
+        const input = document.getElementById(`compareInput${slot}`);
+        const dropdown = document.getElementById(`compareDropdown${slot}`);
+        const clearBtn = document.getElementById(`btnClearCompare${slot}`);
+        if (!input) return;
+
+        input.addEventListener("focus", () => {
+          input.select();
+          popularDropdownComparador(slot, "");
+        });
+
+        input.addEventListener("input", (e) => {
+          popularDropdownComparador(slot, e.target.value);
+          if (clearBtn) clearBtn.classList.toggle("hidden", !e.target.value);
+        });
+
+        input.addEventListener("keydown", (e) => {
+          if (e.key === "Escape") {
+            dropdown.classList.add("hidden");
+          } else if (e.key === "Enter") {
+            const firstBtn = dropdown.querySelector(".compare-item-btn");
+            if (firstBtn) {
+              const cityId = firstBtn.getAttribute("data-id");
+              setCompareCity(slot, cityId, true);
+            }
+          }
+        });
+
+        if (clearBtn) {
+          clearBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            input.value = "";
+            input.focus();
+            popularDropdownComparador(slot, "");
+          });
+        }
+      });
+
+      document.addEventListener("click", (e) => {
+        if (!e.target.closest("#autocompleteContainerA")) {
+          document.getElementById("compareDropdownA")?.classList.add("hidden");
+        }
+        if (!e.target.closest("#autocompleteContainerB")) {
+          document.getElementById("compareDropdownB")?.classList.add("hidden");
+        }
+      });
+    }
+
     function popularSelectsComparador() {
-      const selA = document.getElementById("compareSelectA");
-      const selB = document.getElementById("compareSelectB");
-      if (!selA || !selB) return;
+      const prevA = document.getElementById("compareSelectA")?.value || "83377"; // Brasília-DF
+      const prevB = document.getElementById("compareSelectB")?.value || "83536"; // Diamantina-MG
 
-      const prevA = selA.value || "83377"; // Brasília-DF
-      const prevB = selB.value || "83536"; // Diamantina-MG
+      const featA = allFeatures.find((f) => String(f.properties.id) === String(prevA)) || allFeatures[0];
+      const featB = allFeatures.find((f) => String(f.properties.id) === String(prevB)) || (allFeatures[1] || allFeatures[0]);
 
-      const optionsHtml = allFeatures
-        .map((f) => {
-          const p = f.properties;
-          return `<option value="${p.id}">#${String(p.ranking).padStart(2, "0")} ${p.nome} - ${p.uf} (ICCB ${p.nota_conforto_anual.toFixed(1)} | ${p.altitude_m}m)</option>`;
-        })
-        .join("");
-
-      selA.innerHTML = optionsHtml;
-      selB.innerHTML = optionsHtml;
-
-      selA.value = allFeatures.some((f) => String(f.properties.id) === String(prevA)) ? prevA : allFeatures[0].properties.id;
-      selB.value = allFeatures.some((f) => String(f.properties.id) === String(prevB)) ? prevB : (allFeatures[1] || allFeatures[0]).properties.id;
+      if (featA) setCompareCity("A", featA.properties.id, false);
+      if (featB) setCompareCity("B", featB.properties.id, false);
     }
 
     function renderizarComparacao() {
@@ -2124,6 +2313,25 @@
 
         allFeatures.push(newFeature);
         recalcularTodasEstacoes();
+
+        // Limpa busca de texto e muda para visualização de Todas as cidades para exibir a nova estação
+        searchQuery = "";
+        const dInput = document.getElementById("desktopSearchInput");
+        const mInput = document.getElementById("mobileSearchInput");
+        if (dInput) dInput.value = "";
+        if (mInput) mInput.value = "";
+        document.getElementById("btnClearDesktopSearch")?.classList.add("hidden");
+        document.getElementById("btnClearMobileSearch")?.classList.add("hidden");
+        document.getElementById("btnResetSearchBadge")?.classList.add("hidden");
+
+        currentRegionFilter = "ALL";
+        document.querySelectorAll(".region-pill").forEach((b) => {
+          const isAll = b.getAttribute("data-region") === "ALL";
+          b.className = isAll
+            ? "region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-[#1f5a6e] text-white shrink-0"
+            : "region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 shrink-0";
+        });
+
         popularSelectsComparador();
         selecionarEstacao(newId, true);
 
@@ -2144,7 +2352,7 @@
     // =========================================================================
     async function carregarDadosEstacoes() {
       try {
-        const res = await fetch(`./data/estacoes_clima_brasil.geojson?v=2.4`, { cache: "no-cache" });
+        const res = await fetch(`./data/estacoes_clima_brasil.geojson?v=2.5`, { cache: "no-cache" });
         if (res.ok) {
           const data = await res.json();
           return data.features || [];
@@ -2159,18 +2367,62 @@
     }
 
     function configurarEventosUI() {
-      // Busca Desktop & Mobile
-      const onSearch = (val) => {
-        searchQuery = val;
+      // Função unificada para limpar busca de texto
+      const limparBuscaTexto = () => {
+        searchQuery = "";
+        const dInput = document.getElementById("desktopSearchInput");
+        const mInput = document.getElementById("mobileSearchInput");
+        if (dInput) dInput.value = "";
+        if (mInput) mInput.value = "";
+        document.getElementById("btnClearDesktopSearch")?.classList.add("hidden");
+        document.getElementById("btnClearMobileSearch")?.classList.add("hidden");
+        document.getElementById("btnResetSearchBadge")?.classList.add("hidden");
         renderizarRanking();
         atualizarMarcadoresMapa();
       };
+
+      // Busca Desktop & Mobile em tempo real
+      const onSearch = (val) => {
+        searchQuery = (val || "").trim();
+        const temTexto = searchQuery.length > 0;
+        document.getElementById("btnClearDesktopSearch")?.classList.toggle("hidden", !temTexto);
+        document.getElementById("btnClearMobileSearch")?.classList.toggle("hidden", !temTexto);
+        document.getElementById("btnResetSearchBadge")?.classList.toggle("hidden", !temTexto);
+
+        const dInput = document.getElementById("desktopSearchInput");
+        const mInput = document.getElementById("mobileSearchInput");
+        if (dInput && dInput.value !== val) dInput.value = val;
+        if (mInput && mInput.value !== val) mInput.value = val;
+
+        renderizarRanking();
+        atualizarMarcadoresMapa();
+      };
+
       document.getElementById("desktopSearchInput").addEventListener("input", (e) => onSearch(e.target.value));
+      document.getElementById("desktopSearchInput").addEventListener("search", (e) => onSearch(e.target.value));
       document.getElementById("mobileSearchInput").addEventListener("input", (e) => onSearch(e.target.value));
+      document.getElementById("mobileSearchInput").addEventListener("search", (e) => onSearch(e.target.value));
+
+      document.getElementById("btnClearDesktopSearch")?.addEventListener("click", limparBuscaTexto);
+      document.getElementById("btnClearMobileSearch")?.addEventListener("click", limparBuscaTexto);
+      document.getElementById("btnResetSearchBadge")?.addEventListener("click", limparBuscaTexto);
 
       // Filtro de Região / Top 20 / Capitais
       document.querySelectorAll(".region-pill").forEach((btn) => {
         btn.addEventListener("click", () => {
+          // Quando o usuário clica num filtro (ex: Capitais, Top 20), limpa a busca de texto anterior
+          // para desmarcar a retenção da cidade pesquisada anteriormente
+          if (searchQuery) {
+            searchQuery = "";
+            const dInput = document.getElementById("desktopSearchInput");
+            const mInput = document.getElementById("mobileSearchInput");
+            if (dInput) dInput.value = "";
+            if (mInput) mInput.value = "";
+            document.getElementById("btnClearDesktopSearch")?.classList.add("hidden");
+            document.getElementById("btnClearMobileSearch")?.classList.add("hidden");
+            document.getElementById("btnResetSearchBadge")?.classList.add("hidden");
+          }
+
           currentRegionFilter = btn.getAttribute("data-region");
           document.querySelectorAll(".region-pill").forEach((b) => {
             b.className = "region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 shrink-0";
@@ -2178,6 +2430,12 @@
           btn.className = "region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-[#1f5a6e] text-white shrink-0";
           renderizarRanking();
           atualizarMarcadoresMapa();
+
+          // Se a estação anteriormente selecionada não pertence ao novo filtro, seleciona a #1 do novo filtro
+          const filtradas = obterEstacoesFiltradas();
+          if (filtradas.length > 0 && !filtradas.some((f) => String(f.properties.id) === String(selectedStationId))) {
+            selecionarEstacao(filtradas[0].properties.id, true);
+          }
         });
       });
 
@@ -2268,14 +2526,15 @@
         document.getElementById("mobileSlidersModal").classList.add("hidden");
       });
 
-      // Modal Comparador Cidade A vs B
+      // Modal Comparador Cidade A vs B com Autocomplete
       const openCompare = (stationIdForA) => {
         popularSelectsComparador();
         if (stationIdForA) {
-          document.getElementById("compareSelectA").value = stationIdForA;
-          if (document.getElementById("compareSelectB").value === String(stationIdForA)) {
+          setCompareCity("A", stationIdForA, false);
+          const currentB = document.getElementById("compareSelectB")?.value;
+          if (String(currentB) === String(stationIdForA)) {
             const altCity = allFeatures.find((f) => String(f.properties.id) !== String(stationIdForA));
-            if (altCity) document.getElementById("compareSelectB").value = altCity.properties.id;
+            if (altCity) setCompareCity("B", altCity.properties.id, false);
           }
         }
         document.getElementById("compareModal").classList.remove("hidden");
@@ -2288,14 +2547,12 @@
       document.getElementById("btnCloseCompareModal").addEventListener("click", () => {
         document.getElementById("compareModal").classList.add("hidden");
       });
-      document.getElementById("compareSelectA").addEventListener("change", renderizarComparacao);
-      document.getElementById("compareSelectB").addEventListener("change", renderizarComparacao);
 
       document.querySelectorAll(".preset-compare-btn").forEach((btn) => {
         btn.addEventListener("click", () => {
           const [idA, idB] = btn.getAttribute("data-preset").split(",");
-          document.getElementById("compareSelectA").value = idA;
-          document.getElementById("compareSelectB").value = idB;
+          setCompareCity("A", idA, false);
+          setCompareCity("B", idB, false);
           renderizarComparacao();
         });
       });
@@ -2317,6 +2574,7 @@
     async function initApp() {
       inicializarMapa();
       montarSliders();
+      setupAutocompleteComparador();
       configurarEventosUI();
 
       allFeatures = await carregarDadosEstacoes();
