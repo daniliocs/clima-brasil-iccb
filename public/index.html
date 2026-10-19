@@ -2226,21 +2226,24 @@
         const resp = await fetch(url);
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const json = await resp.json();
-        const param = json.properties.parameter;
-        const elev = json.geometry && json.geometry.coordinates && json.geometry.coordinates[2]
-          ? Math.round(json.geometry.coordinates[2])
+        const elevGrid = json.geometry && json.geometry.coordinates && json.geometry.coordinates[2]
+          ? Number(json.geometry.coordinates[2])
           : altInput;
+        const elev = !isNaN(altInput) && altInput > 0 ? altInput : Math.round(elevGrid);
+
+        // Gradiente térmico adiabático: -0.65°C para cada 100 metros de desnível entre a altitude real do município e a grade MERRA-2 (50 km)
+        const deltaAlt = elev - elevGrid;
+        const lapseCorr = -0.0065 * deltaAlt;
 
         const keys = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
         const dias = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
         // Na API NASA POWER Climatology (grade MERRA-2 de 50km):
-        // T2M + T2M_RANGE/2 sozinho subestima as máximas de tardes ensolaradas em vales quentes (ex: Pirapora),
-        // pois dilui dias nublados e usa a altitude média do bloco de 50km. Combinamos a máxima média com o
-        // envelope de tardes quentes (T2M_MAX) para refletir a temperatura máxima diurna real sentida:
-        const tmedArr = keys.map((k) => param.T2M ? param.T2M[k] : (param.T2M_MAX[k] + param.T2M_MIN[k]) / 2.0);
-        const tmaxAbsArr = keys.map((k) => param.T2M_MAX[k]);
-        const tminAbsArr = keys.map((k) => param.T2M_MIN[k]);
+        // Aplicamos a correção topoclimática de altitude e combinamos a média diurna com o
+        // envelope de tardes quentes (T2M_MAX) para refletir a temperatura máxima real sentida:
+        const tmedArr = keys.map((k) => (param.T2M ? param.T2M[k] : (param.T2M_MAX[k] + param.T2M_MIN[k]) / 2.0) + lapseCorr);
+        const tmaxAbsArr = keys.map((k) => param.T2M_MAX[k] + lapseCorr);
+        const tminAbsArr = keys.map((k) => param.T2M_MIN[k] + lapseCorr);
         const rangeArr = keys.map((k, i) =>
           param.T2M_RANGE && param.T2M_RANGE[k] > 0
             ? param.T2M_RANGE[k]
