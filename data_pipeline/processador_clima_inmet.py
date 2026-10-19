@@ -322,6 +322,17 @@ def obter_recorde_estacao(est: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+CAPITAIS_ESTADUAIS = {
+    ("Rio Branco", "AC"), ("Maceió", "AL"), ("Macapá", "AP"), ("Manaus", "AM"),
+    ("Salvador", "BA"), ("Fortaleza", "CE"), ("Brasília", "DF"), ("Vitória", "ES"),
+    ("Goiânia", "GO"), ("São Luís", "MA"), ("Cuiabá", "MT"), ("Campo Grande", "MS"),
+    ("Belo Horizonte", "MG"), ("Belém", "PA"), ("João Pessoa", "PB"), ("Curitiba", "PR"),
+    ("Recife", "PE"), ("Teresina", "PI"), ("Rio de Janeiro", "RJ"), ("Natal", "RN"),
+    ("Porto Alegre", "RS"), ("Porto Velho", "RO"), ("Boa Vista", "RR"), ("Florianópolis", "SC"),
+    ("São Paulo", "SP"), ("Aracaju", "SE"), ("Palmas", "TO"),
+}
+
+
 def processar_estacoes(estacoes_brutas: List[Dict[str, Any]]) -> Dict[str, Any]:
     features = []
     for est in estacoes_brutas:
@@ -344,6 +355,7 @@ def processar_estacoes(estacoes_brutas: List[Dict[str, Any]]) -> Dict[str, Any]:
         recordes = est.get("recordes_oficiais_xlsx") or obter_recorde_estacao(est)
         pm25_medio = round(float(np.mean(pm25_mensal)), 1)
         pm25_max = round(float(np.max(pm25_mensal)), 1)
+        is_capital = (est["nome"], est["uf"]) in CAPITAIS_ESTADUAIS
 
         features.append({
             "type": "Feature",
@@ -353,6 +365,7 @@ def processar_estacoes(estacoes_brutas: List[Dict[str, Any]]) -> Dict[str, Any]:
                 "nome": est["nome"],
                 "uf": est["uf"],
                 "regiao": est["regiao"],
+                "capital": is_capital,
                 "altitude_m": est["alt"],
                 "fonte_dados": est.get("fonte_dados", "INMET 1991–2020 (Oficial)"),
                 "nota_conforto_anual": nota_anual,
@@ -1004,19 +1017,70 @@ def obter_estacoes_referencia_inmet() -> List[Dict[str, Any]]:
                 if unicodedata.category(c) != "Mn"
             ).upper().strip()
 
+        chaves_atendidas = set()
+        codigos_oficiais_usados = set()
+
         for est in estacoes_base:
             nome_limpo = _norm(est["nome"].split("(")[0].split("/")[0])
             chave = f"{nome_limpo}|{_norm(est['uf'])}"
             if chave in inmet_oficial:
                 dados_of = inmet_oficial[chave]
-                est["codigo_inmet"] = dados_of["codigo_inmet"]
+                est["codigo_inmet"] = str(dados_of["codigo_inmet"])
                 est["tmax"] = dados_of["tmax"]
                 est["tmin"] = dados_of["tmin"]
                 est["ur"] = dados_of["ur"]
                 est["chuva"] = dados_of["chuva"]
+                if dados_of.get("insolacao") and est.get("fonte_dados") != "INMET 1991–2020 (Estação Oficial)":
+                    est["insolacao"] = dados_of["insolacao"]
                 est["fonte_dados"] = "INMET 1991–2020 (Planilha Oficial)"
                 if dados_of.get("recordes") and est["nome"] not in RECORDES_OFICIAIS_BDMEP:
                     est["recordes_oficiais_xlsx"] = dados_of["recordes"]
+                chaves_atendidas.add(chave)
+                codigos_oficiais_usados.add(str(dados_of["codigo_inmet"]))
+
+        # Garantir que estações derivadas não colidam com códigos de estações oficiais do INMET
+        codigos_vistos = set()
+        for est in estacoes_base:
+            cod_atual = str(est["codigo_inmet"])
+            if cod_atual in codigos_vistos:
+                suf = _norm(est["nome"])[:3]
+                est["codigo_inmet"] = f"{cod_atual}_{suf}"
+            codigos_vistos.add(str(est["codigo_inmet"]))
+
+        # Adicionar todas as demais estações oficiais completas do INMET (1991-2020) ao catálogo nacional
+        aliases_ignorados = {"RECIFE (CURADO)|PE", "SALVADOR (ONDINA)|BA", "SAO PAULO(MIR.DE SANTANA)|SP"}
+        for chave, dados_of in sorted(inmet_oficial.items()):
+            if chave in chaves_atendidas or chave in aliases_ignorados:
+                continue
+            cod_of = str(dados_of["codigo_inmet"])
+            if cod_of in codigos_oficiais_usados:
+                continue
+            if cod_of in codigos_vistos:
+                # Se alguma cidade derivada usava esse código provisoriamente, renomeia o código da derivada
+                for e_ant in estacoes_base:
+                    if str(e_ant["codigo_inmet"]) == cod_of:
+                        e_ant["codigo_inmet"] = f"REG_{_norm(e_ant['nome'])[:5]}_{e_ant['uf']}"
+            codigos_vistos.add(cod_of)
+            codigos_oficiais_usados.add(cod_of)
+
+            est_nova = {
+                "codigo_inmet": cod_of,
+                "nome": dados_of.get("nome_exibicao", dados_of["nome_inmet"].title()),
+                "uf": dados_of["uf"],
+                "regiao": dados_of.get("regiao", "Sudeste"),
+                "lat": float(dados_of.get("lat", -15.0)),
+                "lon": float(dados_of.get("lon", -47.0)),
+                "alt": int(dados_of.get("alt", 400)),
+                "fonte_dados": "INMET 1991–2020 (Planilha Oficial)",
+                "tmax": dados_of["tmax"],
+                "tmin": dados_of["tmin"],
+                "ur": dados_of["ur"],
+                "chuva": dados_of["chuva"],
+                "insolacao": dados_of.get("insolacao", [200] * 12),
+            }
+            if dados_of.get("recordes"):
+                est_nova["recordes_oficiais_xlsx"] = dados_of["recordes"]
+            estacoes_base.append(est_nova)
 
     for est in estacoes_base:
         est["pm25"] = obter_pm25_estacao(est)

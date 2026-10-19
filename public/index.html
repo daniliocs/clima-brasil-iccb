@@ -232,11 +232,11 @@
     <button
       type="button"
       id="btnTogglePlanaltoPolygon"
-      class="pointer-events-auto px-3 py-2 rounded-xl bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-md text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 transition"
-      title="Destacar polígono de altitude do Planalto Atlântico / Espinhaço"
+      class="pointer-events-auto px-3 py-2 rounded-xl bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-md text-xs font-semibold text-slate-600 hover:bg-slate-50 flex items-center gap-1.5 transition"
+      title="Exibir/ocultar no mapa o corredor geográfico das serras (Mantiqueira, Espinhaço, Serra Geral e Chapada Diamantina) onde a altitude acima de 800m gera os climas mais amenos do Brasil."
     >
-      <span class="w-2.5 h-2.5 rounded-sm bg-[#c85a32]/40 border border-[#c85a32] inline-block"></span>
-      <span>Polígono Planalto Atlântico</span>
+      <span id="planaltoBtnDot" class="w-2.5 h-2.5 rounded-sm bg-slate-200 border border-slate-400 inline-block transition"></span>
+      <span id="planaltoBtnLabel">Zona Climática de Serra (Exibir)</span>
     </button>
 
     <button
@@ -266,7 +266,7 @@
       <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#1f5a6e]"></i> 74–81,9 Muito Bom</span>
       <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#678c99]"></i> 64–73,9 Bom</span>
       <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#b8c8d0]"></i> 52–63,9 Regular</span>
-      <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#d4c8b8]"></i> &lt;52 Severo</span>
+      <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#d4c8d8]"></i> &lt;52 Severo</span>
     </div>
   </div>
 
@@ -281,7 +281,7 @@
     <div class="p-4 border-b border-slate-200/80 bg-gradient-to-br from-[#1f5a6e] to-[#133b4a] text-white">
       <div class="flex items-center justify-between">
         <span class="px-2 py-0.5 rounded-md bg-white/15 text-[10px] font-mono uppercase tracking-wider">INMET 1991–2020 + CAMS PM2.5</span>
-        <span id="calcLatencyBadge" class="text-[10px] font-mono text-emerald-300">ICCB v2.0 • 0.4ms</span>
+        <span id="calcLatencyBadge" class="text-[10px] font-mono text-emerald-300">ICCB v2.1 • 0.4ms</span>
       </div>
       <h1 class="font-display font-bold text-lg leading-snug mt-1.5">Conforto Climático do Brasil</h1>
       <p class="text-xs text-slate-200 mt-0.5">Avaliação calibrada de Temperatura, Heat Index, Umidade, Chuva e Poluição do Ar (PM2.5).</p>
@@ -294,12 +294,14 @@
         <input
           id="desktopSearchInput"
           type="search"
-          placeholder="Buscar cidade, UF ou estação (ex: Diamantina, DF)..."
+          placeholder="Buscar entre as 236 cidades (ex: Curitiba, AM)..."
           class="w-full pl-9 pr-3 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#1f5a6e] text-slate-800 placeholder:text-slate-400"
         />
       </div>
       <div class="flex items-center gap-1 overflow-x-auto scroller pb-0.5" id="regionFilterBar">
-        <button type="button" data-region="ALL" class="region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-[#1f5a6e] text-white shrink-0">Todas</button>
+        <button type="button" data-region="TOP20" class="region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-[#1f5a6e] text-white shrink-0">Top 20</button>
+        <button type="button" data-region="CAPITAIS" class="region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 shrink-0">Capitais (27)</button>
+        <button type="button" data-region="ALL" class="region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 shrink-0">Todas (236)</button>
         <button type="button" data-region="ALTITUDE" class="region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 shrink-0">Altitude &ge;800m</button>
         <button type="button" data-region="Sudeste" class="region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 shrink-0">Sudeste</button>
         <button type="button" data-region="Sul" class="region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 shrink-0">Sul</button>
@@ -594,7 +596,7 @@
   </div>
 
   <!-- Scripts: Fallback Data + Leaflet + Chart.js -->
-  <script src="./data/estacoes_clima_brasil.js?v=2.1"></script>
+  <script src="./data/estacoes_clima_brasil.js?v=2.2"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
@@ -620,13 +622,28 @@
       weightPollution: 1.0   // Multiplicador de peso de Poluição do Ar (PM2.5)
     };
 
+    const CAPITAIS_BRASIL_SET = new Set([
+      "RIO BRANCO|AC", "MACEIO|AL", "MACAPA|AP", "MANAUS|AM", "SALVADOR|BA",
+      "FORTALEZA|CE", "BRASILIA|DF", "VITORIA|ES", "GOIANIA|GO", "SAO LUIS|MA",
+      "CUIABA|MT", "CAMPO GRANDE|MS", "BELO HORIZONTE|MG", "BELEM|PA", "JOAO PESSOA|PB",
+      "CURITIBA|PR", "RECIFE|PE", "TERESINA|PI", "RIO DE JANEIRO|RJ", "NATAL|RN",
+      "PORTO ALEGRE|RS", "PORTO VELHO|RO", "BOA VISTA|RR", "FLORIANOPOLIS|SC",
+      "SAO PAULO|SP", "ARACAJU|SE", "PALMAS|TO"
+    ]);
+
+    function ehCapitalEstadual(prop) {
+      if (prop.capital === true) return true;
+      const chave = `${normalizarTexto(prop.nome).toUpperCase()}|${normalizarTexto(prop.uf).toUpperCase()}`;
+      return CAPITAIS_BRASIL_SET.has(chave);
+    }
+
     let userParams = { ...DEFAULT_PARAMS };
     let allFeatures = [];
     let selectedStationId = "83536"; // Diamantina-MG ou #1 por padrão
     let currentMapLayer = "iccb";
-    let currentRegionFilter = "ALL";
+    let currentRegionFilter = "TOP20";
     let searchQuery = "";
-    let showPlanaltoPolygon = true;
+    let showPlanaltoPolygon = false;
 
     // Instâncias Leaflet e Chart.js
     let mapInstance = null;
@@ -1042,14 +1059,14 @@
 
       planaltoPolygonLayer = L.polygon(coordsPlanalto, {
         color: "#c85a32",
-        weight: 1.5,
-        dashArray: "5, 5",
+        weight: 2,
+        dashArray: "6, 5",
         fillColor: "#c85a32",
-        fillOpacity: 0.09
-      }).addTo(mapInstance);
+        fillOpacity: 0.11
+      });
 
       planaltoPolygonLayer.bindTooltip(
-        "<strong>Corredor Bioclimático de Altitude</strong><br/>Serra do Espinhaço, Mantiqueira, Órgãos e Planalto Meridional (800m–1.650m)",
+        "<div class='text-xs max-w-xs whitespace-normal'><strong>Zona Climática de Serra / Planalto (&gt;800m)</strong><br/>Delimitação ilustrativa das terras altas (Serra da Mantiqueira, Espinhaço, Órgãos, Planalto Meridional e Chapada Diamantina) onde o efeito da altitude reduz o calor diurno e concentra as maiores notas ICCB do Brasil.</div>",
         { sticky: true }
       );
 
@@ -1061,7 +1078,16 @@
       markersLayerGroup.clearLayers();
       markerById = {};
 
-      for (const feat of allFeatures) {
+      const filtradas = obterEstacoesFiltradas();
+      const listaRender = [...filtradas];
+
+      // Garantir que a estação atualmente selecionada apareça no mapa mesmo se estiver fora do filtro atual
+      if (selectedStationId && !listaRender.some((f) => String(f.properties.id) === String(selectedStationId))) {
+        const selFeat = allFeatures.find((f) => String(f.properties.id) === String(selectedStationId));
+        if (selFeat) listaRender.push(selFeat);
+      }
+
+      for (const feat of listaRender) {
         const [lon, lat] = feat.geometry.coordinates;
         const p = feat.properties;
         const isSelected = String(p.id) === String(selectedStationId);
@@ -1074,7 +1100,7 @@
           iconAnchor: [18, 12]
         });
 
-        const marker = L.marker([lat, lon], { icon });
+        const marker = L.marker([lat, lon], { icon, zIndexOffset: isSelected ? 1000 : 0 });
         marker.bindTooltip(
           `<div class="text-xs"><strong>#${p.ranking} ${p.nome} - ${p.uf}</strong> (${p.altitude_m}m)<br/>ICCB: <strong>${p.nota_conforto_anual.toFixed(1)}</strong> — ${p.classificacao}<br/>PM2.5 méd: <strong>${(p.resumo_anual.pm25_media_anual || 8.0).toFixed(1)} µg/m³</strong> (${p.resumo_anual.qualidade_ar || "Boa"})</div>`,
           { direction: "top", offset: [0, -10] }
@@ -1231,27 +1257,45 @@
     // 5. RENDERIZAÇÃO DO RANKING E PAINEL DE DETALHES DA ESTAÇÃO
     // =========================================================================
     function obterEstacoesFiltradas() {
-      const q = searchQuery.trim().toLowerCase();
-      return allFeatures.filter((f) => {
+      const q = normalizarTexto(searchQuery);
+
+      // Se o usuário digitou uma busca textual e está no modo Top 20, pesquisa em todas as cidades do catálogo
+      const baseList = allFeatures.filter((f) => {
         const p = f.properties;
-        if (currentRegionFilter === "ALTITUDE" && p.altitude_m < 800) return false;
-        if (currentRegionFilter !== "ALL" && currentRegionFilter !== "ALTITUDE" && p.regiao !== currentRegionFilter) {
+        if (q) {
+          const matchTexto =
+            normalizarTexto(p.nome).includes(q) ||
+            normalizarTexto(p.uf).includes(q) ||
+            normalizarTexto(p.regiao).includes(q) ||
+            normalizarTexto(p.id).includes(q);
+          if (!matchTexto) return false;
+          if (currentRegionFilter === "TOP20" || currentRegionFilter === "ALL") return true;
+        }
+
+        if (currentRegionFilter === "CAPITAIS") return ehCapitalEstadual(p);
+        if (currentRegionFilter === "ALTITUDE") return p.altitude_m >= 800;
+        if (currentRegionFilter !== "ALL" && currentRegionFilter !== "TOP20" && p.regiao !== currentRegionFilter) {
           return false;
         }
-        if (!q) return true;
-        return (
-          p.nome.toLowerCase().includes(q) ||
-          p.uf.toLowerCase().includes(q) ||
-          p.regiao.toLowerCase().includes(q) ||
-          String(p.id).toLowerCase().includes(q)
-        );
+        return true;
       });
+
+      if (!q && currentRegionFilter === "TOP20") {
+        return baseList.slice(0, 20);
+      }
+      return baseList;
     }
 
     function renderizarRanking() {
       const filtradas = obterEstacoesFiltradas();
       const countLabel = document.getElementById("rankingCountLabel");
-      if (countLabel) countLabel.textContent = `Ranking das Cidades (${filtradas.length})`;
+      const sufixoFiltro =
+        currentRegionFilter === "TOP20" && !searchQuery.trim()
+          ? `Top 20 de ${allFeatures.length}`
+          : currentRegionFilter === "CAPITAIS"
+          ? `Capitais (${filtradas.length})`
+          : `${filtradas.length}`;
+      if (countLabel) countLabel.textContent = `Ranking das Cidades (${sufixoFiltro})`;
 
       const htmlItens = filtradas
         .map((f) => {
@@ -1443,9 +1487,9 @@
         <!-- Gráfico 2: Nota Mensal ICCB, Umidade Relativa & Poluição PM2.5 -->
         <div class="bg-white border border-slate-200/90 rounded-2xl p-3.5">
           <div class="flex items-center justify-between mb-2">
-            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-600">Nota ICCB, Umidade (%) &amp; Poluição PM2.5 (µg/m³)</h3>
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-600">Nota ICCB, Umidade (%) &amp; Poluição PM2.5 (<span class="normal-case">µg/m³</span>)</h3>
           </div>
-          <div class="h-44">
+          <div class="h-48">
             <canvas id="chartUr_${suffix}"></canvas>
           </div>
         </div>
@@ -1558,6 +1602,7 @@
               fill: true,
               borderWidth: 2.5,
               pointRadius: 3,
+              clip: false,
               tension: 0.3,
               yAxisID: "y"
             },
@@ -1569,6 +1614,7 @@
               borderWidth: 2,
               borderDash: [3, 3],
               pointRadius: 2.5,
+              clip: false,
               tension: 0.3,
               yAxisID: "y"
             },
@@ -1579,6 +1625,7 @@
               backgroundColor: "transparent",
               borderWidth: 2,
               pointRadius: 2.5,
+              clip: false,
               tension: 0.3,
               yAxisID: "yPm"
             }
@@ -1587,16 +1634,20 @@
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          layout: { padding: { top: 6, right: 2, bottom: 2, left: 2 } },
           interaction: { mode: "index", intersect: false },
           plugins: {
-            legend: { position: "top", labels: { boxWidth: 10, font: { size: 10 } } }
+            legend: { position: "top", labels: { boxWidth: 10, padding: 10, font: { size: 10 } } }
           },
           scales: {
             y: {
               type: "linear",
               position: "left",
               min: 0,
-              max: 100,
+              max: 108,
+              afterBuildTicks: (axis) => {
+                axis.ticks = [0, 20, 40, 60, 80, 100].map((v) => ({ value: v }));
+              },
               ticks: { font: { size: 10 } }
             },
             yPm: {
@@ -1773,11 +1824,24 @@
         data: {
           labels: MESES_ORDEM,
           datasets: [
-            { label: `${pA.nome}-${pA.uf}`, data: sA.nota_mensal, borderColor: "#c85a32", backgroundColor: "rgba(200,90,50,0.12)", fill: true, borderWidth: 2.5, tension: 0.3 },
-            { label: `${pB.nome}-${pB.uf}`, data: sB.nota_mensal, borderColor: "#1f5a6e", backgroundColor: "rgba(31,90,110,0.12)", fill: true, borderWidth: 2.5, tension: 0.3 }
+            { label: `${pA.nome}-${pA.uf}`, data: sA.nota_mensal, borderColor: "#c85a32", backgroundColor: "rgba(200,90,50,0.12)", fill: true, borderWidth: 2.5, clip: false, tension: 0.3 },
+            { label: `${pB.nome}-${pB.uf}`, data: sB.nota_mensal, borderColor: "#1f5a6e", backgroundColor: "rgba(31,90,110,0.12)", fill: true, borderWidth: 2.5, clip: false, tension: 0.3 }
           ]
         },
-        options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100 } } }
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          layout: { padding: { top: 6 } },
+          scales: {
+            y: {
+              min: 0,
+              max: 108,
+              afterBuildTicks: (axis) => {
+                axis.ticks = [0, 20, 40, 60, 80, 100].map((v) => ({ value: v }));
+              }
+            }
+          }
+        }
       });
 
       compareCharts.temp = new Chart(document.getElementById("compareChartTemp"), {
@@ -1799,17 +1863,26 @@
         data: {
           labels: MESES_ORDEM,
           datasets: [
-            { label: `UR % ${pA.nome}`, data: sA.ur, borderColor: "#c85a32", borderWidth: 2.5, tension: 0.3, yAxisID: "y" },
-            { label: `UR % ${pB.nome}`, data: sB.ur, borderColor: "#1f5a6e", borderWidth: 2.5, tension: 0.3, yAxisID: "y" },
-            { label: `PM2.5 (µg/m³) ${pA.nome}`, data: sA.pm25_ugm3 || [], borderColor: "#c85a32", borderDash: [3, 3], borderWidth: 1.8, tension: 0.3, yAxisID: "yPm" },
-            { label: `PM2.5 (µg/m³) ${pB.nome}`, data: sB.pm25_ugm3 || [], borderColor: "#1f5a6e", borderDash: [3, 3], borderWidth: 1.8, tension: 0.3, yAxisID: "yPm" }
+            { label: `UR % ${pA.nome}`, data: sA.ur, borderColor: "#c85a32", borderWidth: 2.5, clip: false, tension: 0.3, yAxisID: "y" },
+            { label: `UR % ${pB.nome}`, data: sB.ur, borderColor: "#1f5a6e", borderWidth: 2.5, clip: false, tension: 0.3, yAxisID: "y" },
+            { label: `PM2.5 (µg/m³) ${pA.nome}`, data: sA.pm25_ugm3 || [], borderColor: "#c85a32", borderDash: [3, 3], borderWidth: 1.8, clip: false, tension: 0.3, yAxisID: "yPm" },
+            { label: `PM2.5 (µg/m³) ${pB.nome}`, data: sB.pm25_ugm3 || [], borderColor: "#1f5a6e", borderDash: [3, 3], borderWidth: 1.8, clip: false, tension: 0.3, yAxisID: "yPm" }
           ]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          layout: { padding: { top: 6 } },
           scales: {
-            y: { type: "linear", position: "left", min: 25, max: 100 },
+            y: {
+              type: "linear",
+              position: "left",
+              min: 20,
+              max: 108,
+              afterBuildTicks: (axis) => {
+                axis.ticks = [20, 40, 60, 80, 100].map((v) => ({ value: v }));
+              }
+            },
             yPm: { type: "linear", position: "right", suggestedMin: 0, suggestedMax: 45, grid: { drawOnChartArea: false }, ticks: { callback: (v) => `${v}µg` } }
           }
         }
@@ -2034,7 +2107,7 @@
     // =========================================================================
     async function carregarDadosEstacoes() {
       try {
-        const res = await fetch(`./data/estacoes_clima_brasil.geojson?v=2.1`, { cache: "no-cache" });
+        const res = await fetch(`./data/estacoes_clima_brasil.geojson?v=2.2`, { cache: "no-cache" });
         if (res.ok) {
           const data = await res.json();
           return data.features || [];
@@ -2053,11 +2126,12 @@
       const onSearch = (val) => {
         searchQuery = val;
         renderizarRanking();
+        atualizarMarcadoresMapa();
       };
       document.getElementById("desktopSearchInput").addEventListener("input", (e) => onSearch(e.target.value));
       document.getElementById("mobileSearchInput").addEventListener("input", (e) => onSearch(e.target.value));
 
-      // Filtro de Região
+      // Filtro de Região / Top 20 / Capitais
       document.querySelectorAll(".region-pill").forEach((btn) => {
         btn.addEventListener("click", () => {
           currentRegionFilter = btn.getAttribute("data-region");
@@ -2066,6 +2140,7 @@
           });
           btn.className = "region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-[#1f5a6e] text-white shrink-0";
           renderizarRanking();
+          atualizarMarcadoresMapa();
         });
       });
 
@@ -2088,13 +2163,22 @@
       });
       document.getElementById("mobileLayerSelect").addEventListener("change", (e) => setLayer(e.target.value));
 
-      // Polígono Planalto Atlântico
+      // Polígono Zona Climática de Serra / Planalto (desativado por padrão)
       document.getElementById("btnTogglePlanaltoPolygon").addEventListener("click", () => {
         showPlanaltoPolygon = !showPlanaltoPolygon;
+        const dotEl = document.getElementById("planaltoBtnDot");
+        const labelEl = document.getElementById("planaltoBtnLabel");
+        const btnEl = document.getElementById("btnTogglePlanaltoPolygon");
         if (showPlanaltoPolygon) {
           planaltoPolygonLayer.addTo(mapInstance);
+          if (dotEl) dotEl.className = "w-2.5 h-2.5 rounded-sm bg-[#c85a32]/50 border border-[#c85a32] inline-block transition";
+          if (labelEl) labelEl.textContent = "Zona Climática de Serra (Ativa)";
+          if (btnEl) btnEl.classList.add("border-[#c85a32]", "text-[#c85a32]");
         } else {
           mapInstance.removeLayer(planaltoPolygonLayer);
+          if (dotEl) dotEl.className = "w-2.5 h-2.5 rounded-sm bg-slate-200 border border-slate-400 inline-block transition";
+          if (labelEl) labelEl.textContent = "Zona Climática de Serra (Exibir)";
+          if (btnEl) btnEl.classList.remove("border-[#c85a32]", "text-[#c85a32]");
         }
       });
 
