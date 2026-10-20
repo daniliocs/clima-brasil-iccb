@@ -756,9 +756,9 @@
       </details>
 
       <!-- Ranking Header -->
-      <div class="px-4 py-2.5 bg-slate-100 border-b border-slate-200 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-600 sticky top-0 z-10">
+      <div class="px-3.5 py-2.5 bg-slate-100 border-b border-slate-200 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-600 sticky top-0 z-10">
         <div class="flex items-center gap-2 min-w-0">
-          <span id="rankingCountLabel" class="truncate font-bold">Ranking das Cidades</span>
+          <span id="rankingCountLabel" class="font-bold shrink-0">Ranking das Cidades</span>
           <button
             type="button"
             id="activeFilterBadge"
@@ -775,7 +775,7 @@
             title="Limpar busca de texto"
           >✕ Limpar</button>
         </div>
-        <span class="shrink-0 text-slate-500">Nota ICCB</span>
+        <span class="shrink-0 text-slate-500 font-semibold pl-4">Nota ICCB</span>
       </div>
 
       <!-- Ranking List -->
@@ -789,7 +789,7 @@
   ========================================================================== -->
   <aside
     id="desktopRightPanel"
-    class="hidden lg:flex fixed top-[58px] bottom-6 right-4 w-[390px] max-h-[calc(100vh-84px)] z-20 bg-white border border-slate-300 shadow-2xl rounded-2xl flex-col overflow-hidden transition-transform duration-300 translate-x-0"
+    class="hidden lg:flex fixed top-[54px] bottom-6 right-4 w-[390px] max-h-[calc(100vh-80px)] z-20 bg-white border border-slate-300 shadow-2xl rounded-2xl flex-col overflow-hidden transition-transform duration-300 translate-x-0"
   >
     <!-- Station Header (Solid Slate) -->
     <div class="p-4 border-b border-slate-200 flex items-start justify-between gap-3 bg-slate-50">
@@ -834,12 +834,12 @@
     </div>
   </aside>
 
-  <!-- Button to reopen right panel when collapsed on Desktop (Positioned at top-[58px] right-4) -->
+  <!-- Button to open/toggle right panel on Desktop (Positioned at top-4 right-4, leveled with other top pills) -->
   <button
     type="button"
     id="btnReopenRightPanel"
-    class="hidden fixed top-[58px] right-4 z-20 gmap-pill hover:text-[#1f5a6e] shadow-xl pointer-events-auto"
-    title="Exibir detalhes da cidade selecionada"
+    class="hidden lg:flex fixed top-4 right-4 z-20 gmap-pill hover:text-[#1f5a6e] shadow-xl pointer-events-auto is-active"
+    title="Exibir ou ocultar detalhes da cidade selecionada"
   >
     <svg class="w-4 h-4 text-[#1f5a6e]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
     <span>Detalhes da cidade</span>
@@ -1991,20 +1991,7 @@
     function renderizarRanking() {
       const filtradas = obterEstacoesFiltradas();
       const countLabel = document.getElementById("rankingCountLabel");
-      const sufixoFiltro = (() => {
-        if (searchQuery.trim()) return `Busca: "${searchQuery}" (${filtradas.length})`;
-        if (currentRegionFilter === "TOP20") return `Top 20 de ${allFeatures.length}`;
-        if (currentRegionFilter === "CAPITAIS") return `27 Capitais`;
-        if (currentRegionFilter.startsWith("UF_")) {
-          const uf = currentRegionFilter.replace("UF_", "").toUpperCase();
-          const nomeUf = NOMES_ESTADOS_BRASIL[uf] || uf;
-          return `${nomeUf} • ${filtradas.length} cidades`;
-        }
-        if (currentRegionFilter === "ALTITUDE") return `Altitude ≥800m (${filtradas.length})`;
-        if (currentRegionFilter !== "ALL") return `${currentRegionFilter} (${filtradas.length})`;
-        return `Todas (${filtradas.length})`;
-      })();
-      if (countLabel) countLabel.textContent = `Ranking das Cidades (${sufixoFiltro})`;
+      if (countLabel) countLabel.textContent = "Ranking das Cidades";
 
       const htmlItens = filtradas
         .map((f, idx) => {
@@ -2456,10 +2443,7 @@
       const rightPanel = document.getElementById("desktopRightPanel");
       const reopenBtn = document.getElementById("btnReopenRightPanel");
       if (rightPanel) rightPanel.classList.remove("translate-x-[480px]");
-      if (reopenBtn) {
-        reopenBtn.classList.add("hidden");
-        reopenBtn.classList.remove("lg:flex");
-      }
+      if (reopenBtn) reopenBtn.classList.add("is-active");
 
       // Renderizar corpo de detalhes Desktop + Mobile
       document.getElementById("stationDetailBodyDesktop").innerHTML = gerarHTMLDetalhesEstacao(feat, "desktop");
@@ -3459,17 +3443,22 @@
       });
 
       // Ocultar / Reabrir Painel Direito Desktop
-      document.getElementById("btnCloseRightPanel").addEventListener("click", () => {
-        document.getElementById("desktopRightPanel").classList.add("translate-x-[480px]");
-        const reopen = document.getElementById("btnReopenRightPanel");
-        reopen.classList.remove("hidden");
-        reopen.classList.add("lg:flex");
+      document.getElementById("btnCloseRightPanel")?.addEventListener("click", () => {
+        document.getElementById("desktopRightPanel")?.classList.add("translate-x-[480px]");
+        document.getElementById("btnReopenRightPanel")?.classList.remove("is-active");
       });
-      document.getElementById("btnReopenRightPanel").addEventListener("click", () => {
-        document.getElementById("desktopRightPanel").classList.remove("translate-x-[480px]");
+      document.getElementById("btnReopenRightPanel")?.addEventListener("click", () => {
+        const rightPanel = document.getElementById("desktopRightPanel");
         const reopen = document.getElementById("btnReopenRightPanel");
-        reopen.classList.add("hidden");
-        reopen.classList.remove("lg:flex");
+        if (!rightPanel) return;
+        const isHidden = rightPanel.classList.contains("translate-x-[480px]");
+        if (isHidden) {
+          rightPanel.classList.remove("translate-x-[480px]");
+          reopen?.classList.add("is-active");
+        } else {
+          rightPanel.classList.add("translate-x-[480px]");
+          reopen?.classList.remove("is-active");
+        }
       });
 
       // Bottom Sheet Mobile (Minimizado vs Expandido)
