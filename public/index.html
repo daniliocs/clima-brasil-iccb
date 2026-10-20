@@ -144,7 +144,7 @@
     .iccb-marker-pin.is-selected {
       transform: scale(1.22);
       z-index: 900 !important;
-      box-shadow: 0 0 0 4px rgba(200, 90, 50, 0.35), 0 6px 16px rgba(15, 23, 42, 0.38);
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.45), 0 6px 16px rgba(15, 23, 42, 0.38);
     }
 
     /* Mobile Bottom Sheet transition */
@@ -291,16 +291,51 @@
     </button>
   </div>
 
-  <!-- FLOATING LEGEND (Bottom Left on Desktop) -->
-  <div class="hidden lg:block fixed bottom-5 left-[404px] z-20 bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-md rounded-2xl p-3 pointer-events-auto">
-    <div id="legendTitle" class="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">Faixas do Índice ICCB (0–100)</div>
-    <div id="legendItems" class="flex items-center gap-3 text-xs font-medium text-slate-700">
-      <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#c85a32]"></i> 82–100 Quase Perfeito</span>
-      <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#1f5a6e]"></i> 74–81,9 Muito Bom</span>
-      <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#678c99]"></i> 64–73,9 Bom</span>
-      <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#b8c8d0]"></i> 52–63,9 Regular</span>
-      <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#d4c8d8]"></i> &lt;52 Severo</span>
+  <!-- FLOATING LEGEND (Bottom Left on Desktop - Collapsible / Popover) -->
+  <div id="legendContainer" class="hidden lg:flex fixed bottom-5 left-[404px] z-20 flex-col items-start gap-2 pointer-events-auto">
+    <!-- Popover Card (hidden by default) -->
+    <div
+      id="legendCard"
+      class="hidden bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-2xl rounded-2xl p-3.5 w-80 max-w-[calc(100vw-440px)] transition-all duration-200"
+    >
+      <div class="flex items-center justify-between gap-3 mb-2 pb-1.5 border-b border-slate-100">
+        <div id="legendTitle" class="text-[11px] font-bold uppercase tracking-wider text-slate-600">Faixas do Índice ICCB (0–100)</div>
+        <button
+          type="button"
+          id="btnCloseLegend"
+          class="text-slate-400 hover:text-slate-700 w-5 h-5 rounded-md hover:bg-slate-100 flex items-center justify-center text-xs font-bold transition"
+          title="Fechar legenda"
+        >✕</button>
+      </div>
+      <div id="legendItems" class="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs font-medium text-slate-700">
+        <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#2563eb] shrink-0"></i> &ge;82 Quase Perfeito</span>
+        <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#16a34a] shrink-0"></i> 74–81,9 Muito Bom</span>
+        <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#ca8a04] shrink-0"></i> 64–73,9 Bom</span>
+        <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#ea580c] shrink-0"></i> 52–63,9 Regular</span>
+        <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#dc2626] shrink-0"></i> 35–51,9 Severo</span>
+        <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#991b1b] shrink-0"></i> &lt;35 Crítico</span>
+      </div>
     </div>
+
+    <!-- Toggle Button -->
+    <button
+      type="button"
+      id="btnToggleLegend"
+      class="px-3 py-1.5 rounded-xl bg-white/95 backdrop-blur-md border border-slate-200/90 hover:bg-slate-50 text-slate-700 shadow-md text-xs font-semibold flex items-center gap-2 transition"
+      title="Mostrar / Ocultar legenda de cores do mapa"
+    >
+      <span class="inline-flex items-center -space-x-1 shrink-0">
+        <span class="w-2.5 h-2.5 rounded-full bg-[#2563eb] border border-white"></span>
+        <span class="w-2.5 h-2.5 rounded-full bg-[#16a34a] border border-white"></span>
+        <span class="w-2.5 h-2.5 rounded-full bg-[#ca8a04] border border-white"></span>
+        <span class="w-2.5 h-2.5 rounded-full bg-[#ea580c] border border-white"></span>
+        <span class="w-2.5 h-2.5 rounded-full bg-[#dc2626] border border-white"></span>
+      </span>
+      <span>Legenda</span>
+      <svg id="legendChevronIcon" class="w-3.5 h-3.5 text-slate-400 transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/>
+      </svg>
+    </button>
   </div>
 
   <!-- =========================================================================
@@ -337,8 +372,15 @@
           title="Limpar busca"
         >✕</button>
       </div>
-      <div class="flex items-center gap-1 overflow-x-auto scroller pb-0.5" id="regionFilterBar">
-        <button type="button" data-region="TOP20" class="region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-[#1f5a6e] text-white shrink-0">Top 20</button>
+      <div class="flex items-center gap-1.5 overflow-x-auto scroller pb-0.5" id="regionFilterBar">
+        <select
+          id="stateFilterSelect"
+          class="state-filter-select px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 border border-slate-300/80 outline-none shrink-0 cursor-pointer transition focus:ring-2 focus:ring-[#2563eb]/30"
+          title="Filtrar cidades por Estado (UF)"
+        >
+          <option value="">Por Estado (UF)...</option>
+        </select>
+        <button type="button" data-region="TOP20" class="region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-[#2563eb] text-white shrink-0">Top 20</button>
         <button type="button" data-region="CAPITAIS" class="region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 shrink-0">Capitais (27)</button>
         <button type="button" data-region="ALL" class="region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 shrink-0">Todas (260)</button>
         <button type="button" data-region="ALTITUDE" class="region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 shrink-0">Altitude &ge;800m</button>
@@ -398,14 +440,14 @@
       <div>
         <div class="flex items-center gap-2">
           <span id="detailRankBadge" class="px-2 py-0.5 rounded-md bg-slate-900 text-white font-mono text-xs font-bold">#01</span>
-          <span id="detailClassBadge" class="px-2.5 py-0.5 rounded-full text-xs font-bold text-white bg-[#c85a32]">Quase Perfeito</span>
+          <span id="detailClassBadge" class="px-2.5 py-0.5 rounded-full text-xs font-bold text-white bg-[#2563eb]">Quase Perfeito</span>
           <span id="detailCodeBadge" class="text-[11px] font-mono text-slate-400">INMET 83536</span>
         </div>
         <h2 id="detailCityTitle" class="font-display font-extrabold text-xl text-slate-900 mt-1">Diamantina - MG</h2>
         <p id="detailSubMeta" class="text-xs text-slate-500 mt-0.5">Região Sudeste • Altitude: 1.296 m • Lat -18.25°, Lon -43.60°</p>
       </div>
       <div class="flex flex-col items-end shrink-0">
-        <div id="detailScoreBig" class="font-mono font-extrabold text-3xl text-[#c85a32] leading-none">93.9</div>
+        <div id="detailScoreBig" class="font-mono font-extrabold text-3xl text-[#2563eb] leading-none">93.9</div>
         <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mt-1">ICCB Anual</span>
       </div>
     </div>
@@ -465,7 +507,7 @@
           </div>
         </div>
         <div class="flex items-center gap-2 shrink-0">
-          <span id="mobileSheetScore" class="font-mono font-extrabold text-2xl text-[#c85a32]">93.9</span>
+          <span id="mobileSheetScore" class="font-mono font-extrabold text-2xl text-[#2563eb]">93.9</span>
           <button
             type="button"
             id="btnToggleMobileSheet"
@@ -646,25 +688,25 @@
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label for="nasaInputNome" class="block text-[11px] font-bold text-slate-600 mb-1">Município</label>
-            <input id="nasaInputNome" type="text" value="Monte Verde (Camanducaia)" class="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg" />
+            <input id="nasaInputNome" type="text" placeholder="Ex: Almenara" class="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-[#1f5a6e]" />
           </div>
           <div class="grid grid-cols-2 gap-2">
             <div>
               <label for="nasaInputUF" class="block text-[11px] font-bold text-slate-600 mb-1">UF</label>
-              <input id="nasaInputUF" type="text" value="MG" maxlength="2" class="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg uppercase" />
+              <input id="nasaInputUF" type="text" placeholder="MG" maxlength="2" class="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg uppercase focus:outline-none focus:border-[#1f5a6e]" />
             </div>
             <div>
               <label for="nasaInputAlt" class="block text-[11px] font-bold text-slate-600 mb-1">Alt. (m)</label>
-              <input id="nasaInputAlt" type="number" value="1555" class="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg" />
+              <input id="nasaInputAlt" type="number" placeholder="Auto (DEM)" class="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-[#1f5a6e]" title="Altitude topográfica real (preenchida automaticamente via satélite DEM SRTM/Copernicus)" />
             </div>
           </div>
           <div>
             <label for="nasaInputLat" class="block text-[11px] font-bold text-slate-600 mb-1">Latitude</label>
-            <input id="nasaInputLat" type="number" step="0.0001" value="-22.8628" class="w-full px-3 py-1.5 text-xs font-mono border border-slate-300 rounded-lg" />
+            <input id="nasaInputLat" type="number" step="0.0001" placeholder="-16.1834" class="w-full px-3 py-1.5 text-xs font-mono border border-slate-300 rounded-lg focus:outline-none focus:border-[#1f5a6e]" />
           </div>
           <div>
             <label for="nasaInputLon" class="block text-[11px] font-bold text-slate-600 mb-1">Longitude</label>
-            <input id="nasaInputLon" type="number" step="0.0001" value="-46.0364" class="w-full px-3 py-1.5 text-xs font-mono border border-slate-300 rounded-lg" />
+            <input id="nasaInputLon" type="number" step="0.0001" placeholder="-40.6942" class="w-full px-3 py-1.5 text-xs font-mono border border-slate-300 rounded-lg focus:outline-none focus:border-[#1f5a6e]" />
           </div>
         </div>
 
@@ -948,69 +990,99 @@
     }
 
     function corPorNota(nota) {
-      if (nota >= 82.0) return { bg: "#c85a32", text: "#ffffff" };
-      if (nota >= 74.0) return { bg: "#1f5a6e", text: "#ffffff" };
-      if (nota >= 64.0) return { bg: "#678c99", text: "#ffffff" };
-      if (nota >= 52.0) return { bg: "#b8c8d0", text: "#0f172a" };
-      return { bg: "#d4c8b8", text: "#0f172a" };
+      if (nota >= 82.0) return { bg: "#2563eb", text: "#ffffff" }; // Azul Real (Quase Perfeito - Melhor Qualidade)
+      if (nota >= 74.0) return { bg: "#16a34a", text: "#ffffff" }; // Verde (Muito Bom)
+      if (nota >= 64.0) return { bg: "#ca8a04", text: "#ffffff" }; // Amarelo Dourado (Bom)
+      if (nota >= 52.0) return { bg: "#ea580c", text: "#ffffff" }; // Laranja (Regular)
+      if (nota >= 35.0) return { bg: "#dc2626", text: "#ffffff" }; // Vermelho (Severo / Extremo)
+      return { bg: "#991b1b", text: "#ffffff" };                   // Vermelho Escuro (Hostil / Crítico - Pior Qualidade)
     }
 
     function atualizarLegendaMapa(layer) {
       const titleEl = document.getElementById("legendTitle");
       const itemsEl = document.getElementById("legendItems");
+      const previewEl = document.getElementById("legendBtnPreview");
       if (!titleEl || !itemsEl) return;
 
       if (layer === "pm25") {
-        titleEl.textContent = "Faixas de Poluição do Ar — PM2.5 Anual (µg/m³)";
+        titleEl.textContent = "Poluição do Ar — PM2.5 (µg/m³)";
         itemsEl.innerHTML = `
-          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#059669]"></i> &lt;7,5 Excelente</span>
-          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#1f5a6e]"></i> 7,5–9,9 Bom (OMS)</span>
-          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#d97706]"></i> 10–13,4 Moderado</span>
-          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#c85a32]"></i> 13,5–17,9 Poluído</span>
-          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#7f1d1d]"></i> &ge;18 Crítico/Fumaça</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#059669] shrink-0"></i> &lt;7,5 Excelente</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#1f5a6e] shrink-0"></i> 7,5–9,9 Bom</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#d97706] shrink-0"></i> 10–13,4 Moderado</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#c85a32] shrink-0"></i> 13,5–17,9 Poluído</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#7f1d1d] shrink-0"></i> &ge;18 Crítico</span>
         `;
+        if (previewEl) {
+          previewEl.innerHTML = `
+            <span class="w-2.5 h-2.5 rounded-full bg-[#059669] border border-white"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-[#1f5a6e] border border-white"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-[#d97706] border border-white"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-[#c85a32] border border-white"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-[#7f1d1d] border border-white"></span>
+          `;
+        }
       } else if (layer === "hi") {
-        titleEl.textContent = "Sensação Térmica — Heat Index Máximo Mensal (°C)";
+        titleEl.textContent = "Sensação Térmica — Heat Index (°C)";
         itemsEl.innerHTML = `
-          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#1f5a6e]"></i> &lt;25°C Amena</span>
-          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#678c99]"></i> 25–27,9°C Confortável</span>
-          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#d97706]"></i> 28–31,9°C Quente</span>
-          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#c85a32]"></i> 32–35,9°C Abafado</span>
-          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#991b1b]"></i> &ge;36°C Extremo</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#1f5a6e] shrink-0"></i> &lt;25°C Amena</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#678c99] shrink-0"></i> 25–27,9°C Confortável</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#d97706] shrink-0"></i> 28–31,9°C Quente</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#c85a32] shrink-0"></i> 32–35,9°C Abafado</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#991b1b] shrink-0"></i> &ge;36°C Extremo</span>
         `;
+        if (previewEl) {
+          previewEl.innerHTML = `
+            <span class="w-2.5 h-2.5 rounded-full bg-[#1f5a6e] border border-white"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-[#678c99] border border-white"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-[#d97706] border border-white"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-[#c85a32] border border-white"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-[#991b1b] border border-white"></span>
+          `;
+        }
       } else if (layer === "ur_min") {
-        titleEl.textContent = "Umidade Relativa Mínima Mensal (%)";
+        titleEl.textContent = "Umidade Mínima Mensal (%)";
         itemsEl.innerHTML = `
-          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#b91c1c]"></i> &lt;48% Secura Severa</span>
-          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#d97706]"></i> 48–54% Seco</span>
-          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#1f5a6e]"></i> 55–76% Faixa Ideal</span>
-          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#678c99]"></i> &gt;76% Muito Úmido</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#b91c1c] shrink-0"></i> &lt;48% Secura Severa</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#d97706] shrink-0"></i> 48–54% Seco</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#1f5a6e] shrink-0"></i> 55–76% Faixa Ideal</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#678c99] shrink-0"></i> &gt;76% Muito Úmido</span>
         `;
       } else if (layer === "chuva") {
-        titleEl.textContent = "Precipitação Acumulada Anual (mm/ano)";
+        titleEl.textContent = "Precipitação Anual (mm/ano)";
         itemsEl.innerHTML = `
-          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#c85a32]"></i> &lt;800 mm Semiárido/Seco</span>
-          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#678c99]"></i> 800–1.199 mm Moderado</span>
-          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#1f5a6e]"></i> 1.200–2.200 mm Equilibrado</span>
-          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#1e3a8a]"></i> &gt;2.200 mm Chuvoso</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#c85a32] shrink-0"></i> &lt;800mm Seco</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#678c99] shrink-0"></i> 800–1.199mm Moderado</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#1f5a6e] shrink-0"></i> 1.200–2.200mm Equilibrado</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#1e3a8a] shrink-0"></i> &gt;2.200mm Chuvoso</span>
         `;
       } else if (layer === "altitude") {
-        titleEl.textContent = "Altitude Topográfica da Estação (metros)";
+        titleEl.textContent = "Altitude Topográfica (metros)";
         itemsEl.innerHTML = `
-          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#c85a32]"></i> &ge;1.000m Serra Alta</span>
-          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#1f5a6e]"></i> 750–999m Planalto</span>
-          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#678c99]"></i> 400–749m Subplanalto</span>
-          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#b8c8d0]"></i> &lt;400m Baixada/Litoral</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#c85a32] shrink-0"></i> &ge;1.000m Serra Alta</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#1f5a6e] shrink-0"></i> 750–999m Planalto</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#678c99] shrink-0"></i> 400–749m Subplanalto</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#b8c8d0] shrink-0"></i> &lt;400m Litoral/Baixada</span>
         `;
       } else {
-        titleEl.textContent = "Faixas do Índice ICCB v2.1 (0–100)";
+        titleEl.textContent = "Faixas do Índice ICCB (0–100)";
         itemsEl.innerHTML = `
-          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#c85a32]"></i> 82–100 Quase Perfeito</span>
-          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#1f5a6e]"></i> 74–81,9 Muito Bom</span>
-          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#678c99]"></i> 64–73,9 Bom</span>
-          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#b8c8d0]"></i> 52–63,9 Regular</span>
-          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#d4c8b8]"></i> &lt;52 Severo</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#2563eb] shrink-0"></i> &ge;82 Quase Perfeito</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#16a34a] shrink-0"></i> 74–81,9 Muito Bom</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#ca8a04] shrink-0"></i> 64–73,9 Bom</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#ea580c] shrink-0"></i> 52–63,9 Regular</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#dc2626] shrink-0"></i> 35–51,9 Severo</span>
+          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#991b1b] shrink-0"></i> &lt;35 Crítico</span>
         `;
+        if (previewEl) {
+          previewEl.innerHTML = `
+            <span class="w-2.5 h-2.5 rounded-full bg-[#2563eb] border border-white"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-[#16a34a] border border-white"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-[#ca8a04] border border-white"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-[#ea580c] border border-white"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-[#dc2626] border border-white"></span>
+          `;
+        }
       }
     }
 
@@ -1501,6 +1573,10 @@
           if (currentRegionFilter === "TOP20" || currentRegionFilter === "ALL") return true;
         }
 
+        if (currentRegionFilter.startsWith("UF_")) {
+          const targetUf = currentRegionFilter.replace("UF_", "").toUpperCase();
+          return (p.uf || "").toUpperCase() === targetUf;
+        }
         if (currentRegionFilter === "CAPITAIS") return ehCapitalEstadual(p);
         if (currentRegionFilter === "ALTITUDE") return p.altitude_m >= 800;
         if (currentRegionFilter !== "ALL" && currentRegionFilter !== "TOP20" && p.regiao !== currentRegionFilter) {
@@ -1518,31 +1594,46 @@
     function renderizarRanking() {
       const filtradas = obterEstacoesFiltradas();
       const countLabel = document.getElementById("rankingCountLabel");
-      const sufixoFiltro =
-        currentRegionFilter === "TOP20" && !searchQuery.trim()
-          ? `Top 20 de ${allFeatures.length}`
-          : currentRegionFilter === "CAPITAIS"
-          ? `Capitais (${filtradas.length})`
-          : `${filtradas.length}`;
+      const sufixoFiltro = (() => {
+        if (searchQuery.trim()) return `Busca: "${searchQuery}" (${filtradas.length})`;
+        if (currentRegionFilter === "TOP20") return `Top 20 de ${allFeatures.length}`;
+        if (currentRegionFilter === "CAPITAIS") return `27 Capitais`;
+        if (currentRegionFilter.startsWith("UF_")) {
+          const uf = currentRegionFilter.replace("UF_", "").toUpperCase();
+          const nomeUf = NOMES_ESTADOS_BRASIL[uf] || uf;
+          return `${nomeUf} • ${filtradas.length} cidades`;
+        }
+        if (currentRegionFilter === "ALTITUDE") return `Altitude ≥800m (${filtradas.length})`;
+        if (currentRegionFilter !== "ALL") return `${currentRegionFilter} (${filtradas.length})`;
+        return `Todas (${filtradas.length})`;
+      })();
       if (countLabel) countLabel.textContent = `Ranking das Cidades (${sufixoFiltro})`;
 
       const htmlItens = filtradas
-        .map((f) => {
+        .map((f, idx) => {
           const p = f.properties;
           const r = p.resumo_anual;
           const tmedAnual = ((r.tmin_media_anual + r.tmax_media_anual) / 2.0).toFixed(1);
           const cor = corPorNota(p.nota_conforto_anual);
           const isSelected = String(p.id) === String(selectedStationId);
+          const posNoFiltro = idx + 1;
+          const exibirPosBr = posNoFiltro !== p.ranking && currentRegionFilter !== "ALL";
+
           return `
             <button
               type="button"
               data-station-id="${p.id}"
               class="station-rank-item w-full text-left px-4 py-2.5 flex items-center justify-between gap-2 transition ${
-                isSelected ? "bg-amber-50/90 border-l-4 border-[#c85a32]" : "hover:bg-slate-50"
+                isSelected ? "bg-blue-50/90 border-l-4 border-[#2563eb]" : "hover:bg-slate-50"
               }"
             >
               <div class="flex items-center gap-2.5 min-w-0">
-                <span class="w-6 text-xs font-mono font-bold text-slate-400 shrink-0">#${String(p.ranking).padStart(2, "0")}</span>
+                <div class="w-8 flex flex-col items-center justify-center shrink-0 text-center">
+                  <span class="text-xs font-mono font-bold ${posNoFiltro <= 3 ? "text-blue-600 font-extrabold" : "text-slate-700"}">
+                    #${String(posNoFiltro).padStart(2, "0")}
+                  </span>
+                  ${exibirPosBr ? `<span class="text-[9px] font-mono text-slate-400 leading-none mt-0.5">#${p.ranking} BR</span>` : ""}
+                </div>
                 <div class="min-w-0">
                   <div class="font-display font-bold text-xs text-slate-900 truncate">${p.nome} <span class="text-slate-400 font-normal">• ${p.uf}</span></div>
                   <div class="text-[11px] text-slate-500 flex items-center gap-1.5 flex-wrap">
@@ -1555,7 +1646,7 @@
                 </div>
               </div>
               <div class="flex flex-col items-end shrink-0">
-                <span class="px-2 py-0.5 rounded-md font-mono font-bold text-xs" style="background:${cor.bg};color:${cor.text};">
+                <span class="px-2 py-0.5 rounded-md font-mono font-bold text-xs shadow-xs" style="background:${cor.bg};color:${cor.text};">
                   ${p.nota_conforto_anual.toFixed(1)}
                 </span>
                 <span class="text-[10px] text-slate-400 mt-0.5">${p.classificacao}</span>
@@ -1927,8 +2018,29 @@
         mapInstance.flyTo([lat, lon], Math.max(mapInstance.getZoom(), 6), { duration: 0.65 });
       }
 
+      // Calcular a posição da estação no filtro ativo atualmente
+      const filtradas = obterEstacoesFiltradas();
+      const idxNoFiltro = filtradas.findIndex((f) => String(f.properties.id) === String(p.id));
+      const posNoFiltro = idxNoFiltro !== -1 ? idxNoFiltro + 1 : null;
+
+      let rankBadgeText = `#${String(p.ranking).padStart(2, "0")}`;
+      if (posNoFiltro !== null && currentRegionFilter !== "ALL") {
+        if (currentRegionFilter.startsWith("UF_")) {
+          const uf = currentRegionFilter.replace("UF_", "").toUpperCase();
+          rankBadgeText = `#${String(posNoFiltro).padStart(2, "0")} em ${uf} (#${p.ranking} BR)`;
+        } else if (currentRegionFilter === "CAPITAIS") {
+          rankBadgeText = `#${String(posNoFiltro).padStart(2, "0")} Capitais (#${p.ranking} BR)`;
+        } else if (currentRegionFilter === "TOP20") {
+          rankBadgeText = `#${String(posNoFiltro).padStart(2, "0")} no Brasil`;
+        } else if (currentRegionFilter === "ALTITUDE") {
+          rankBadgeText = `#${String(posNoFiltro).padStart(2, "0")} Serra (#${p.ranking} BR)`;
+        } else {
+          rankBadgeText = `#${String(posNoFiltro).padStart(2, "0")} no ${currentRegionFilter} (#${p.ranking} BR)`;
+        }
+      }
+
       // Atualizar cabeçalho do painel direito (Desktop)
-      document.getElementById("detailRankBadge").textContent = `#${String(p.ranking).padStart(2, "0")}`;
+      document.getElementById("detailRankBadge").textContent = rankBadgeText;
       const classBadge = document.getElementById("detailClassBadge");
       classBadge.textContent = p.classificacao;
       classBadge.style.backgroundColor = cor.bg;
@@ -1941,7 +2053,7 @@
 
       const scoreBig = document.getElementById("detailScoreBig");
       scoreBig.textContent = p.nota_conforto_anual.toFixed(1);
-      scoreBig.style.color = cor.bg === "#b8c8d0" || cor.bg === "#d4c8b8" ? "#334155" : cor.bg;
+      scoreBig.style.color = cor.bg;
 
       // Garantir que o painel direito esteja visível no Desktop
       const rightPanel = document.getElementById("desktopRightPanel");
@@ -1958,12 +2070,12 @@
       renderizarGraficosEstacao(feat, "mobile");
 
       // Atualizar Bottom Sheet Mobile Header
-      document.getElementById("mobileSheetRank").textContent = `#${String(p.ranking).padStart(2, "0")}`;
+      document.getElementById("mobileSheetRank").textContent = rankBadgeText;
       document.getElementById("mobileSheetCity").textContent = `${p.nome} - ${p.uf}`;
       document.getElementById("mobileSheetMeta").textContent = `${p.classificacao} • Alt. ${p.altitude_m}m • PM2.5 ${(p.resumo_anual.pm25_media_anual || 8.0).toFixed(1)} µg/m³`;
       const mobScore = document.getElementById("mobileSheetScore");
       mobScore.textContent = p.nota_conforto_anual.toFixed(1);
-      mobScore.style.color = cor.bg === "#b8c8d0" || cor.bg === "#d4c8b8" ? "#334155" : cor.bg;
+      mobScore.style.color = cor.bg;
 
       atualizarMarcadoresMapa();
       renderizarRanking();
@@ -2124,6 +2236,58 @@
 
       if (featA) setCompareCity("A", featA.properties.id, false);
       if (featB) setCompareCity("B", featB.properties.id, false);
+    }
+
+    const NOMES_ESTADOS_BRASIL = {
+      AC: "Acre",
+      AL: "Alagoas",
+      AM: "Amazonas",
+      AP: "Amapá",
+      BA: "Bahia",
+      CE: "Ceará",
+      DF: "Distrito Federal",
+      ES: "Espírito Santo",
+      GO: "Goiás",
+      MA: "Maranhão",
+      MG: "Minas Gerais",
+      MS: "Mato Grosso do Sul",
+      MT: "Mato Grosso",
+      PA: "Pará",
+      PB: "Paraíba",
+      PE: "Pernambuco",
+      PI: "Piauí",
+      PR: "Paraná",
+      RJ: "Rio de Janeiro",
+      RN: "Rio Grande do Norte",
+      RO: "Rondônia",
+      RR: "Roraima",
+      RS: "Rio Grande do Sul",
+      SC: "Santa Catarina",
+      SE: "Sergipe",
+      SP: "São Paulo",
+      TO: "Tocantins"
+    };
+
+    function popularSelectEstados() {
+      const selectEl = document.getElementById("stateFilterSelect");
+      if (!selectEl) return;
+      const ufsContagem = {};
+      for (const feat of allFeatures) {
+        const uf = (feat.properties.uf || "").toUpperCase();
+        if (uf) ufsContagem[uf] = (ufsContagem[uf] || 0) + 1;
+      }
+      const ufsOrdenadas = Object.keys(ufsContagem).sort();
+      const valorAtual = selectEl.value;
+      selectEl.innerHTML = `
+        <option value="">Por Estado (UF)...</option>
+        ${ufsOrdenadas
+          .map((uf) => {
+            const nome = NOMES_ESTADOS_BRASIL[uf] || uf;
+            return `<option value="${uf}">${uf} — ${nome} (${ufsContagem[uf]})</option>`;
+          })
+          .join("")}
+      `;
+      if (valorAtual) selectEl.value = valorAtual;
     }
 
     function renderizarComparacao() {
@@ -2306,21 +2470,45 @@
         }
         const item = data[0];
         const parts = item.display_name.split(",").map((s) => s.trim());
-        document.getElementById("nasaInputNome").value = parts[0] || query;
-        document.getElementById("nasaInputLat").value = parseFloat(item.lat).toFixed(4);
-        document.getElementById("nasaInputLon").value = parseFloat(item.lon).toFixed(4);
+        const nomeCidade = (item.address && (item.address.city || item.address.town || item.address.municipality || item.address.village)) || parts[0] || query;
+        document.getElementById("nasaInputNome").value = nomeCidade;
+        const lat = parseFloat(item.lat);
+        const lon = parseFloat(item.lon);
+        document.getElementById("nasaInputLat").value = lat.toFixed(4);
+        document.getElementById("nasaInputLon").value = lon.toFixed(4);
 
         // Extrair UF automaticamente do retorno do Nominatim
+        let ufEncontrada = "BR";
         if (item.address) {
           const iso = item.address["ISO3166-2-lvl4"];
-          const stateName = (item.address.state || "").toLowerCase();
+          const stateName = normalizarTexto(item.address.state || "");
           if (iso && iso.startsWith("BR-")) {
-            document.getElementById("nasaInputUF").value = iso.replace("BR-", "");
+            ufEncontrada = iso.replace("BR-", "");
           } else if (MAPA_ESTADOS_UF[stateName]) {
-            document.getElementById("nasaInputUF").value = MAPA_ESTADOS_UF[stateName];
+            ufEncontrada = MAPA_ESTADOS_UF[stateName];
           }
         }
-        statusEl.textContent = `Coordenadas localizadas: ${item.display_name}`;
+        document.getElementById("nasaInputUF").value = ufEncontrada;
+
+        // Limpa altitude temporariamente e consulta Modelo Digital de Elevação DEM (Copernicus/SRTM 90m)
+        document.getElementById("nasaInputAlt").value = "";
+        statusEl.textContent = `Coordenadas localizadas: [${lat.toFixed(4)}, ${lon.toFixed(4)}]. Obtendo altitude topográfica real via DEM...`;
+        try {
+          const elevRes = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lon}`);
+          if (elevRes.ok) {
+            const elevData = await elevRes.json();
+            if (elevData && Array.isArray(elevData.elevation) && elevData.elevation[0] !== null) {
+              const altReal = Math.round(elevData.elevation[0]);
+              document.getElementById("nasaInputAlt").value = altReal;
+              statusEl.textContent = `Localizado: ${nomeCidade} - ${ufEncontrada} (Altitude: ${altReal} m). Pronto para consultar satélite NASA!`;
+              return;
+            }
+          }
+        } catch (eElev) {
+          console.warn("Aviso ao buscar DEM Open-Meteo:", eElev);
+        }
+
+        statusEl.textContent = `Localizado: ${nomeCidade} - ${ufEncontrada}. Pronto para consultar satélite NASA!`;
       } catch (err) {
         statusEl.textContent = "Erro ao geocodificar. Informe Lat/Lon diretamente.";
       }
@@ -2332,7 +2520,7 @@
       if (isFetchingNasa) return;
       const nome = document.getElementById("nasaInputNome").value.trim() || "Município NASA";
       const uf = (document.getElementById("nasaInputUF").value.trim() || "BR").toUpperCase();
-      const altInput = parseInt(document.getElementById("nasaInputAlt").value, 10) || 500;
+      let altInput = parseInt(document.getElementById("nasaInputAlt").value, 10);
       const lat = parseFloat(document.getElementById("nasaInputLat").value);
       const lon = parseFloat(document.getElementById("nasaInputLon").value);
       const statusEl = document.getElementById("nasaStatusMsg");
@@ -2342,6 +2530,24 @@
         statusEl.classList.remove("hidden");
         statusEl.textContent = "Informe valores numéricos válidos para Latitude e Longitude.";
         return;
+      }
+
+      // Se a altitude não foi informada manualmente, busca automaticamente no modelo de elevação DEM
+      if (isNaN(altInput) || altInput <= 0) {
+        statusEl.classList.remove("hidden");
+        statusEl.textContent = "Obtendo altitude topográfica do relevo via satélite DEM...";
+        try {
+          const elevRes = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lon}`);
+          if (elevRes.ok) {
+            const elevData = await elevRes.json();
+            if (elevData && Array.isArray(elevData.elevation) && elevData.elevation[0] !== null) {
+              altInput = Math.round(elevData.elevation[0]);
+              document.getElementById("nasaInputAlt").value = altInput;
+            }
+          }
+        } catch (eElev) {
+          console.warn("Falha no DEM Open-Meteo:", eElev);
+        }
       }
 
       // 1. Verificar se a cidade já existe na lista (pelo mesmo nome + UF ou coordenadas muito próximas < ~5km)
@@ -2378,7 +2584,7 @@
         const param = (json.properties && json.properties.parameter) || {};
         const elevGrid = json.geometry && json.geometry.coordinates && json.geometry.coordinates[2]
           ? Number(json.geometry.coordinates[2])
-          : altInput;
+          : (!isNaN(altInput) ? altInput : 200);
         const elev = !isNaN(altInput) && altInput > 0 ? altInput : Math.round(elevGrid);
 
         // Gradiente térmico adiabático: -0.65°C para cada 100 metros de desnível entre a altitude real do município e a grade MERRA-2 (50 km)
@@ -2489,11 +2695,17 @@
         document.querySelectorAll(".region-pill").forEach((b) => {
           const isAll = b.getAttribute("data-region") === "ALL";
           b.className = isAll
-            ? "region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-[#1f5a6e] text-white shrink-0"
+            ? "region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-[#2563eb] text-white shrink-0"
             : "region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 shrink-0";
         });
+        const stateSelect = document.getElementById("stateFilterSelect");
+        if (stateSelect) {
+          stateSelect.value = "";
+          stateSelect.className = "state-filter-select px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 border border-slate-300/80 outline-none shrink-0 cursor-pointer transition";
+        }
 
         popularSelectsComparador();
+        popularSelectEstados();
         selecionarEstacao(newId, true);
 
         statusEl.textContent = `Sucesso! ${nome}-${uf} adicionado ao mapa e ranking.`;
@@ -2584,21 +2796,85 @@
             document.getElementById("btnResetSearchBadge")?.classList.add("hidden");
           }
 
+          // Resetar select de estado
+          const stateSelect = document.getElementById("stateFilterSelect");
+          if (stateSelect) {
+            stateSelect.value = "";
+            stateSelect.className = "state-filter-select px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 border border-slate-300/80 outline-none shrink-0 cursor-pointer transition";
+          }
+
           currentRegionFilter = btn.getAttribute("data-region");
           document.querySelectorAll(".region-pill").forEach((b) => {
             b.className = "region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 shrink-0";
           });
-          btn.className = "region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-[#1f5a6e] text-white shrink-0";
+          btn.className = "region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-[#2563eb] text-white shrink-0";
           renderizarRanking();
           atualizarMarcadoresMapa();
 
           // Se a estação anteriormente selecionada não pertence ao novo filtro, seleciona a #1 do novo filtro
           const filtradas = obterEstacoesFiltradas();
-          if (filtradas.length > 0 && !filtradas.some((f) => String(f.properties.id) === String(selectedStationId))) {
-            selecionarEstacao(filtradas[0].properties.id, true);
+          if (filtradas.length > 0) {
+            if (!filtradas.some((f) => String(f.properties.id) === String(selectedStationId))) {
+              selecionarEstacao(filtradas[0].properties.id, true);
+            } else {
+              selecionarEstacao(selectedStationId, false);
+            }
+            if (mapInstance && currentRegionFilter !== "ALL" && currentRegionFilter !== "TOP20") {
+              const coords = filtradas.map((f) => [f.geometry.coordinates[1], f.geometry.coordinates[0]]);
+              const bounds = L.latLngBounds(coords);
+              mapInstance.fitBounds(bounds, { padding: [40, 40], maxZoom: 8, duration: 0.6 });
+            }
           }
         });
       });
+
+      // Filtro de Estado (UF)
+      const stateSelect = document.getElementById("stateFilterSelect");
+      if (stateSelect) {
+        stateSelect.addEventListener("change", (e) => {
+          const uf = e.target.value.trim().toUpperCase();
+          if (searchQuery) {
+            searchQuery = "";
+            const dInput = document.getElementById("desktopSearchInput");
+            const mInput = document.getElementById("mobileSearchInput");
+            if (dInput) dInput.value = "";
+            if (mInput) mInput.value = "";
+            document.getElementById("btnClearDesktopSearch")?.classList.add("hidden");
+            document.getElementById("btnClearMobileSearch")?.classList.add("hidden");
+            document.getElementById("btnResetSearchBadge")?.classList.add("hidden");
+          }
+
+          if (uf) {
+            currentRegionFilter = "UF_" + uf;
+            stateSelect.className = "state-filter-select px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-[#2563eb] text-white border border-[#2563eb] outline-none shrink-0 cursor-pointer transition shadow-xs";
+            document.querySelectorAll(".region-pill").forEach((b) => {
+              b.className = "region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 shrink-0";
+            });
+          } else {
+            currentRegionFilter = "ALL";
+            stateSelect.className = "state-filter-select px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 border border-slate-300/80 outline-none shrink-0 cursor-pointer transition";
+            document.querySelectorAll(".region-pill").forEach((b) => {
+              const isAll = b.getAttribute("data-region") === "ALL";
+              b.className = isAll
+                ? "region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-[#2563eb] text-white shrink-0"
+                : "region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 shrink-0";
+            });
+          }
+
+          renderizarRanking();
+          atualizarMarcadoresMapa();
+
+          const filtradas = obterEstacoesFiltradas();
+          if (filtradas.length > 0) {
+            selecionarEstacao(filtradas[0].properties.id, true);
+            if (mapInstance && uf) {
+              const coords = filtradas.map((f) => [f.geometry.coordinates[1], f.geometry.coordinates[0]]);
+              const bounds = L.latLngBounds(coords);
+              mapInstance.fitBounds(bounds, { padding: [40, 40], maxZoom: 8, duration: 0.6 });
+            }
+          }
+        });
+      }
 
       // Troca de Camada Desktop & Mobile
       const setLayer = (layer) => {
@@ -2618,6 +2894,42 @@
         btn.addEventListener("click", () => setLayer(btn.getAttribute("data-layer")));
       });
       document.getElementById("mobileLayerSelect").addEventListener("change", (e) => setLayer(e.target.value));
+
+      // Controle do Botão e Popover da Legenda de Cores do Mapa
+      const legendCard = document.getElementById("legendCard");
+      const btnToggleLegend = document.getElementById("btnToggleLegend");
+      const btnCloseLegend = document.getElementById("btnCloseLegend");
+      const legendChevron = document.getElementById("legendChevronIcon");
+
+      const toggleLegend = () => {
+        if (!legendCard) return;
+        const isHidden = legendCard.classList.contains("hidden");
+        if (isHidden) {
+          legendCard.classList.remove("hidden");
+          if (legendChevron) legendChevron.classList.add("rotate-180");
+        } else {
+          legendCard.classList.add("hidden");
+          if (legendChevron) legendChevron.classList.remove("rotate-180");
+        }
+      };
+
+      if (btnToggleLegend) btnToggleLegend.addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleLegend();
+      });
+
+      if (btnCloseLegend) btnCloseLegend.addEventListener("click", (e) => {
+        e.stopPropagation();
+        legendCard?.classList.add("hidden");
+        if (legendChevron) legendChevron.classList.remove("rotate-180");
+      });
+
+      document.addEventListener("click", (e) => {
+        if (!e.target.closest("#legendContainer")) {
+          legendCard?.classList.add("hidden");
+          if (legendChevron) legendChevron.classList.remove("rotate-180");
+        }
+      });
 
       // Polígono Zona Climática de Serra / Planalto (desativado por padrão)
       document.getElementById("btnTogglePlanaltoPolygon").addEventListener("click", () => {
@@ -2719,15 +3031,29 @@
       });
 
       // Modal NASA POWER API
-      const openNasa = () => document.getElementById("nasaModal").classList.remove("hidden");
+      const openNasa = () => {
+        document.getElementById("nasaModal").classList.remove("hidden");
+        document.getElementById("nasaStatusMsg").classList.add("hidden");
+        const searchInp = document.getElementById("nasaCitySearch");
+        if (searchInp) {
+          setTimeout(() => searchInp.focus(), 80);
+        }
+      };
       document.getElementById("btnOpenNasaModalDesktop").addEventListener("click", openNasa);
       document.getElementById("btnOpenNasaModalMobile").addEventListener("click", openNasa);
       document.getElementById("btnCloseNasaModal").addEventListener("click", () => {
         document.getElementById("nasaModal").classList.add("hidden");
       });
       document.getElementById("btnGeocodeCity").addEventListener("click", () => {
-        const q = document.getElementById("nasaCitySearch").value;
+        const q = document.getElementById("nasaCitySearch").value.trim();
         if (q) geocodificarCidadeBrasil(q);
+      });
+      document.getElementById("nasaCitySearch").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          const q = document.getElementById("nasaCitySearch").value.trim();
+          if (q) geocodificarCidadeBrasil(q);
+        }
       });
       document.getElementById("btnFetchNasaLive").addEventListener("click", consultarNasaPowerAoVivo);
     }
@@ -2741,8 +3067,11 @@
       allFeatures = await carregarDadosEstacoes();
       recalcularTodasEstacoes();
       popularSelectsComparador();
+      popularSelectEstados();
 
       if (allFeatures.length > 0) {
+        atualizarMarcadoresMapa();
+        renderizarRanking();
         selecionarEstacao(allFeatures[0].properties.id, false);
       }
 

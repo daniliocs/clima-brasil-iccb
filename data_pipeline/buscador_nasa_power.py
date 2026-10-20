@@ -33,7 +33,14 @@ def buscar_clima_municipio_nasa(lat: float, lon: float, alt_municipio: Optional[
     dados = response.json()
     parametros = dados["properties"]["parameter"]
     elev_grid = float(dados.get("geometry", {}).get("coordinates", [lon, lat, 500])[2])
-    alt_efetiva = int(round(alt_municipio)) if alt_municipio is not None and alt_municipio > 0 else int(round(elev_grid))
+    if alt_municipio is not None and alt_municipio > 0:
+        alt_efetiva = int(round(alt_municipio))
+    else:
+        try:
+            r_elev = requests.get(f"https://api.open-meteo.com/v1/elevation?latitude={lat}&longitude={lon}", timeout=5).json()
+            alt_efetiva = int(round(r_elev["elevation"][0]))
+        except Exception:
+            alt_efetiva = int(round(elev_grid))
 
     # Gradiente térmico adiabático: -0.65°C para cada 100 metros de elevação
     delta_alt = alt_efetiva - elev_grid
