@@ -83,6 +83,73 @@
       }
     }
 
+    /* Hide scrollbars while allowing touch/mousewheel scroll (Google Maps style) */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none !important;
+      width: 0 !important;
+      height: 0 !important;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none !important;
+      scrollbar-width: none !important;
+    }
+
+    /* Google Maps style floating pills (Solid Design) */
+    .gmap-pill {
+      height: 36px;
+      padding-left: 13px;
+      padding-right: 13px;
+      border-radius: 9999px;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04);
+      font-size: 12px;
+      font-weight: 600;
+      color: #1e293b;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.16s ease;
+      flex-shrink: 0;
+    }
+    .gmap-pill:hover {
+      background: #f1f5f9;
+      border-color: #94a3b8;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+    }
+    .gmap-pill:active,
+    .gmap-pill.is-active {
+      background: #0f172a;
+      border-color: #0f172a;
+      color: #ffffff;
+      box-shadow: 0 3px 10px rgba(15, 23, 42, 0.25);
+    }
+    .gmap-pill.is-active svg {
+      color: #ffffff !important;
+    }
+    .gmap-pill.is-active .gmap-chevron {
+      color: #cbd5e1 !important;
+    }
+
+    /* Flyout card animation */
+    .gmap-flyout {
+      animation: gmapFlyoutIn 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+      transform-origin: top left;
+    }
+    @keyframes gmapFlyoutIn {
+      from {
+        opacity: 0;
+        transform: translateY(-5px) scale(0.97);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
     /* Drag handle chrome only - never apply user-select: none to content text */
     .sheet-drag-handle {
       user-select: none;
@@ -161,7 +228,7 @@
       }
       .leaflet-control-zoom {
         box-shadow: 0 4px 14px rgba(15, 23, 42, 0.22) !important;
-        border: 1.5px solid rgba(203, 213, 225, 0.95) !important;
+        border: 1.5px solid #cbd5e1 !important;
         border-radius: 12px !important;
         overflow: hidden !important;
       }
@@ -170,7 +237,7 @@
         height: 38px !important;
         line-height: 38px !important;
         font-size: 19px !important;
-        background-color: rgba(255, 255, 255, 0.96) !important;
+        background-color: #ffffff !important;
         color: #1e293b !important;
         font-weight: 700 !important;
       }
@@ -183,131 +250,243 @@
   <div id="map" class="fixed inset-0 z-0 w-full h-full"></div>
 
   <!-- =========================================================================
-       MOBILE TOP FLOATING BAR (< 1024px)
+       MOBILE TOP FLOATING BAR (< 1024px) - 100% Solid Design
   ========================================================================== -->
-  <header class="lg:hidden fixed top-3 inset-x-3 z-20 flex flex-col gap-2 pointer-events-none">
-    <div class="pointer-events-auto flex items-center gap-2 bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-lg rounded-2xl px-3 py-2">
-      <div class="flex items-center gap-1.5 pr-1 border-r border-slate-200">
-        <span class="w-3 h-3 rounded-full bg-[#c85a32] inline-block"></span>
-        <span class="font-display font-bold text-xs tracking-tight text-slate-900">ICCB</span>
+  <header class="lg:hidden fixed top-3 inset-x-3 z-20 flex flex-col gap-1.5 pointer-events-none">
+    <!-- Row 1: Search & Core Action Buttons (Spacious search so placeholder is never cut) -->
+    <div class="pointer-events-auto flex items-center gap-2 bg-white border border-slate-300 shadow-md rounded-2xl p-1.5">
+      <!-- ICCB Logo Badge -->
+      <div class="flex items-center gap-1 shrink-0 pl-1 pr-1.5 border-r border-slate-200">
+        <span class="w-2.5 h-2.5 rounded-full bg-[#c85a32]"></span>
+        <span class="font-display font-extrabold text-xs tracking-tight text-slate-900">ICCB</span>
       </div>
-      <div class="relative flex-1 min-w-0 flex items-center bg-slate-50 border-2 border-slate-300 rounded-xl px-2.5 py-1 transition focus-within:border-[#c85a32] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#c85a32]/20">
-        <svg class="w-3.5 h-3.5 text-slate-400 mr-1.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+
+      <!-- Search Input Container (Full-width, ample breathing space, clear border) -->
+      <div class="relative flex-1 min-w-0 flex items-center bg-slate-50 border-2 border-slate-300 rounded-xl px-2.5 py-1.5 focus-within:border-[#2563eb] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#2563eb]/20 transition">
+        <svg class="w-4 h-4 text-slate-400 mr-1.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
         <input
           id="mobileSearchInput"
           type="search"
           placeholder="Buscar"
-          class="w-full bg-transparent text-xs sm:text-sm text-slate-800 placeholder:text-slate-500 font-medium focus:outline-none pr-5"
+          class="w-full bg-transparent text-xs text-slate-800 placeholder:text-slate-500 font-semibold focus:outline-none"
         />
         <button
           type="button"
           id="btnClearMobileSearch"
-          class="hidden absolute right-1.5 text-slate-400 hover:text-slate-600 w-5 h-5 rounded-full hover:bg-slate-200/60 flex items-center justify-center text-xs font-bold"
+          class="hidden text-slate-400 hover:text-slate-600 w-5 h-5 rounded-full hover:bg-slate-200 flex items-center justify-center text-xs font-bold shrink-0 ml-1 cursor-pointer"
           title="Limpar busca"
         >✕</button>
       </div>
+
+      <!-- Clima Ideal (Sliders trigger) -->
       <button
         type="button"
         id="btnOpenMobileSliders"
-        class="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1 shrink-0"
-        title="Personalizar Pesos e Limites"
+        class="h-8 px-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center shrink-0 transition cursor-pointer"
+        title="Personalizar Pesos e Clima Ideal"
+        aria-label="Clima Ideal"
       >
-        <svg class="w-3.5 h-3.5 text-[#c85a32]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
-        <span>Clima Ideal</span>
+        <svg class="w-4 h-4 text-[#c85a32]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
       </button>
+
+      <!-- Compare A vs B -->
       <button
         type="button"
         id="btnOpenCompareMobile"
-        class="px-2.5 py-1.5 rounded-xl bg-[#1f5a6e] text-white text-xs font-semibold shrink-0"
+        class="h-8 px-2.5 rounded-xl bg-[#1f5a6e] hover:bg-[#164454] text-white text-xs font-semibold flex items-center gap-1 shrink-0 transition cursor-pointer"
+        title="Comparar Cidades (A vs B)"
       >
-        A vs B
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        <span>A vs B</span>
       </button>
     </div>
 
-    <!-- Mobile Layer & NASA Power Quick Bar -->
-    <div class="pointer-events-auto flex items-center justify-between gap-2">
-      <select
-        id="mobileLayerSelect"
-        aria-label="Selecionar camada do mapa"
-        class="bg-white/95 backdrop-blur-md border border-slate-200 shadow-md rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none"
+    <!-- Row 2: Google Maps style Pill Buttons -->
+    <div class="pointer-events-auto flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 px-0.5">
+      <!-- 1. Camadas Pill -->
+      <button
+        type="button"
+        id="btnMobileCamadas"
+        class="gmap-pill"
+        title="Selecionar camada climática e relevo"
       >
-        <option value="iccb">Camada: Nota Geral (ICCB)</option>
-        <option value="pm25">Camada: Poluição do Ar (PM2.5 µg/m³)</option>
-        <option value="hi">Camada: Heat Index Máximo (°C)</option>
-        <option value="ur_min">Camada: Umidade Mínima Mensal (%)</option>
-        <option value="chuva">Camada: Chuva Anual (mm)</option>
-        <option value="altitude">Camada: Altitude (m)</option>
-      </select>
+        <svg class="w-3.5 h-3.5 text-[#1f5a6e]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        <span class="label-active-layer">Camadas</span>
+        <svg class="w-3 h-3 text-slate-400 gmap-chevron transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+      </button>
 
+      <!-- 2. Filtros Pill -->
+      <button
+        type="button"
+        id="btnMobileFiltros"
+        class="gmap-pill"
+        title="Filtrar por Região, Capitais, Top 20 ou Estado"
+      >
+        <svg class="w-3.5 h-3.5 text-[#2563eb]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        <span class="label-active-filter">Filtros</span>
+        <svg class="w-3 h-3 text-slate-400 gmap-chevron transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+      </button>
+
+      <!-- 3. NASA POWER Button Mobile -->
       <button
         type="button"
         id="btnOpenNasaModalMobile"
-        class="bg-white/95 backdrop-blur-md border border-slate-200 shadow-md rounded-xl px-3 py-1.5 text-xs font-semibold text-[#1f5a6e] flex items-center gap-1"
+        class="gmap-pill hover:text-[#1f5a6e]"
+        title="Consultar qualquer município do Brasil via NASA POWER"
       >
-        <span>+ Município (NASA)</span>
+        <svg class="w-3.5 h-3.5 text-[#1f5a6e]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+        <span>Município (NASA)</span>
       </button>
+    </div>
+
+    <!-- Mobile Flyout Camadas (100% Solid) -->
+    <div
+      id="flyoutCamadasMobile"
+      class="hidden pointer-events-auto w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-slate-300 p-3 z-30 gmap-flyout space-y-2.5"
+    >
+      <div class="flex items-center justify-between pb-1 border-b border-slate-100">
+        <div class="text-[11px] font-bold uppercase tracking-wider text-slate-500 px-1">Camadas Climáticas</div>
+        <button type="button" class="btn-close-mobile-flyout text-slate-400 hover:text-slate-600 text-xs font-bold px-1.5 py-0.5 cursor-pointer">✕</button>
+      </div>
+      <div class="grid grid-cols-2 gap-1.5">
+        <button type="button" data-layer="iccb" class="layer-tile p-2 rounded-xl border-2 border-[#1f5a6e] bg-[#1f5a6e]/10 flex items-center gap-2 text-left transition cursor-pointer">
+          <span class="w-7 h-7 rounded-lg bg-[#1f5a6e] text-white flex items-center justify-center shrink-0 text-xs font-bold">★</span>
+          <div>
+            <div class="text-xs font-bold text-slate-900">Nota ICCB</div>
+            <div class="text-[10px] text-slate-500">Geral (0–100)</div>
+          </div>
+        </button>
+        <button type="button" data-layer="pm25" class="layer-tile p-2 rounded-xl border border-slate-200 hover:border-slate-300 flex items-center gap-2 text-left transition cursor-pointer">
+          <span class="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 text-xs">🍃</span>
+          <div>
+            <div class="text-xs font-bold text-slate-900">PM2.5</div>
+            <div class="text-[10px] text-slate-500">Poluição do Ar</div>
+          </div>
+        </button>
+        <button type="button" data-layer="hi" class="layer-tile p-2 rounded-xl border border-slate-200 hover:border-slate-300 flex items-center gap-2 text-left transition cursor-pointer">
+          <span class="w-7 h-7 rounded-lg bg-amber-500 text-white flex items-center justify-center shrink-0 text-xs">🌡️</span>
+          <div>
+            <div class="text-xs font-bold text-slate-900">Heat Index</div>
+            <div class="text-[10px] text-slate-500">Calor Máximo</div>
+          </div>
+        </button>
+        <button type="button" data-layer="ur_min" class="layer-tile p-2 rounded-xl border border-slate-200 hover:border-slate-300 flex items-center gap-2 text-left transition cursor-pointer">
+          <span class="w-7 h-7 rounded-lg bg-blue-500 text-white flex items-center justify-center shrink-0 text-xs">💧</span>
+          <div>
+            <div class="text-xs font-bold text-slate-900">Umidade</div>
+            <div class="text-[10px] text-slate-500">Mín. Inverno</div>
+          </div>
+        </button>
+        <button type="button" data-layer="chuva" class="layer-tile p-2 rounded-xl border border-slate-200 hover:border-slate-300 flex items-center gap-2 text-left transition cursor-pointer">
+          <span class="w-7 h-7 rounded-lg bg-cyan-600 text-white flex items-center justify-center shrink-0 text-xs">🌧️</span>
+          <div>
+            <div class="text-xs font-bold text-slate-900">Chuva Anual</div>
+            <div class="text-[10px] text-slate-500">Acumulado (mm)</div>
+          </div>
+        </button>
+        <button type="button" data-layer="altitude" class="layer-tile p-2 rounded-xl border border-slate-200 hover:border-slate-300 flex items-center gap-2 text-left transition cursor-pointer">
+          <span class="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0 text-xs">⛰️</span>
+          <div>
+            <div class="text-xs font-bold text-slate-900">Altitude</div>
+            <div class="text-[10px] text-slate-500">Topografia DEM</div>
+          </div>
+        </button>
+      </div>
+
+      <!-- Sobreposição de Serra -->
+      <div class="border-t border-slate-100 pt-2">
+        <label class="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-50 cursor-pointer transition">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-sm bg-[#c85a32]/60 border border-[#c85a32]"></span>
+            <div>
+              <div class="text-xs font-bold text-slate-800">Zona Climática de Serra</div>
+              <div class="text-[10px] text-slate-500">Mantiqueira, Espinhaço e Serra Geral (&ge;800m)</div>
+            </div>
+          </div>
+          <input type="checkbox" class="chk-planalto-toggle w-4 h-4 rounded text-[#c85a32] focus:ring-[#c85a32] cursor-pointer" />
+        </label>
+      </div>
+
+      <!-- Estilo de Mapa Base -->
+      <div class="border-t border-slate-100 pt-2">
+        <div class="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1 px-1">Estilo do Mapa Base</div>
+        <div class="grid grid-cols-3 gap-1.5">
+          <button type="button" data-basemap="padrao" class="basemap-tile p-1.5 rounded-xl border-2 border-[#1f5a6e] bg-[#1f5a6e]/10 text-center transition cursor-pointer">
+            <div class="text-[11px] font-bold text-slate-800">🗺️ Padrão</div>
+          </button>
+          <button type="button" data-basemap="terreno" class="basemap-tile p-1.5 rounded-xl border border-slate-200 hover:border-slate-300 text-center transition cursor-pointer">
+            <div class="text-[11px] font-bold text-slate-800">⛰️ Relevo</div>
+          </button>
+          <button type="button" data-basemap="hibrido" class="basemap-tile p-1.5 rounded-xl border border-slate-200 hover:border-slate-300 text-center transition cursor-pointer">
+            <div class="text-[11px] font-bold text-slate-800">🛰️ Satélite</div>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile Flyout Filtros (100% Solid) -->
+    <div
+      id="flyoutFiltrosMobile"
+      class="hidden pointer-events-auto w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-slate-300 p-3 z-30 gmap-flyout space-y-2.5"
+    >
+      <div class="flex items-center justify-between pb-1 border-b border-slate-100">
+        <div class="text-[11px] font-bold uppercase tracking-wider text-slate-500 px-1">Filtros de Cidades</div>
+        <button type="button" class="btn-close-mobile-flyout text-slate-400 hover:text-slate-600 text-xs font-bold px-1.5 py-0.5 cursor-pointer">✕</button>
+      </div>
+      <div>
+        <div class="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1 px-1">Destaques Rápidos</div>
+        <div class="flex flex-wrap gap-1">
+          <button type="button" data-region="TOP20" class="region-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer">Top 20</button>
+          <button type="button" data-region="CAPITAIS" class="region-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer">Capitais (27)</button>
+          <button type="button" data-region="ALL" class="region-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#2563eb] text-white cursor-pointer">Todas (260)</button>
+          <button type="button" data-region="ALTITUDE" class="region-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer">Serra (&ge;800m)</button>
+        </div>
+      </div>
+
+      <div class="border-t border-slate-100 pt-2">
+        <div class="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1 px-1">Regiões</div>
+        <div class="flex flex-wrap gap-1">
+          <button type="button" data-region="Sudeste" class="region-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer">Sudeste</button>
+          <button type="button" data-region="Sul" class="region-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer">Sul</button>
+          <button type="button" data-region="Centro-Oeste" class="region-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer">C.-Oeste</button>
+          <button type="button" data-region="Nordeste" class="region-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer">Nordeste</button>
+          <button type="button" data-region="Norte" class="region-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer">Norte</button>
+        </div>
+      </div>
+
+      <div class="border-t border-slate-100 pt-2">
+        <div class="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1 px-1">Por Estado (UF)</div>
+        <select
+          class="state-filter-select w-full px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-50 text-slate-800 border border-slate-300 outline-none cursor-pointer focus:ring-2 focus:ring-[#2563eb]/30"
+        >
+          <option value="">Por Estado (UF)...</option>
+        </select>
+      </div>
     </div>
   </header>
 
   <!-- =========================================================================
-       DESKTOP TOP FLOATING CONTROLS (Layer Switcher + Compare + NASA POWER + Legend)
+       FLOATING COLLAPSIBLE LEGEND (Desktop at bottom-left, Mobile adapted above bottom sheet) - 100% Solid
   ========================================================================== -->
-  <div class="hidden lg:flex fixed top-4 left-[404px] z-20 items-center gap-2.5 pointer-events-none">
-    <div class="pointer-events-auto flex items-center gap-1 bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-md rounded-xl p-1">
-      <button type="button" data-layer="iccb" class="layer-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1f5a6e] text-white transition">Nota ICCB</button>
-      <button type="button" data-layer="pm25" class="layer-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition">Poluição (PM2.5)</button>
-      <button type="button" data-layer="hi" class="layer-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition">Heat Index</button>
-      <button type="button" data-layer="ur_min" class="layer-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition">Umidade Mín.</button>
-      <button type="button" data-layer="chuva" class="layer-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition">Chuva Anual</button>
-      <button type="button" data-layer="altitude" class="layer-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition">Altitude</button>
-    </div>
-
-    <button
-      type="button"
-      id="btnTogglePlanaltoPolygon"
-      class="pointer-events-auto px-3 py-2 rounded-xl bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-md text-xs font-semibold text-slate-600 hover:bg-slate-50 flex items-center gap-1.5 transition"
-      title="Exibir/ocultar no mapa o corredor geográfico das serras (Mantiqueira, Espinhaço, Serra Geral e Chapada Diamantina) onde a altitude acima de 800m gera os climas mais amenos do Brasil."
-    >
-      <span id="planaltoBtnDot" class="w-2.5 h-2.5 rounded-sm bg-slate-200 border border-slate-400 inline-block transition"></span>
-      <span id="planaltoBtnLabel">Zona Climática de Serra (Exibir)</span>
-    </button>
-
-    <button
-      type="button"
-      id="btnOpenCompareDesktop"
-      class="pointer-events-auto px-3.5 py-2 rounded-xl bg-[#c85a32] hover:bg-[#b04822] text-white shadow-md text-xs font-semibold flex items-center gap-1.5 transition"
-    >
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-      <span>Comparar Cidade A vs. B</span>
-    </button>
-
-    <button
-      type="button"
-      id="btnOpenNasaModalDesktop"
-      class="pointer-events-auto px-3.5 py-2 rounded-xl bg-white/95 backdrop-blur-md border border-slate-200/90 hover:bg-slate-50 text-[#1f5a6e] shadow-md text-xs font-semibold flex items-center gap-1.5 transition"
-    >
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
-      <span>Consultar 5.570 Municípios (NASA POWER)</span>
-    </button>
-  </div>
-
-  <!-- FLOATING LEGEND (Bottom Left on Desktop - Collapsible / Popover) -->
-  <div id="legendContainer" class="hidden lg:flex fixed bottom-5 left-[404px] z-20 flex-col items-start gap-2 pointer-events-auto">
-    <!-- Popover Card (hidden by default) -->
+  <div
+    id="legendContainer"
+    class="fixed bottom-[calc(17vh+18px)] left-3 lg:bottom-5 lg:left-[404px] z-20 flex flex-col items-start gap-2 pointer-events-auto"
+  >
+    <!-- Popover Card (Solid White) -->
     <div
       id="legendCard"
-      class="hidden bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-2xl rounded-2xl p-3.5 w-80 max-w-[calc(100vw-440px)] transition-all duration-200"
+      class="hidden bg-white border border-slate-300 shadow-2xl rounded-2xl p-3.5 w-72 max-w-[calc(100vw-32px)] transition-all duration-200"
     >
       <div class="flex items-center justify-between gap-3 mb-2 pb-1.5 border-b border-slate-100">
-        <div id="legendTitle" class="text-[11px] font-bold uppercase tracking-wider text-slate-600">Faixas do Índice ICCB (0–100)</div>
+        <div id="legendTitle" class="text-[11px] font-bold uppercase tracking-wider text-slate-700">Faixas do Índice ICCB (0–100)</div>
         <button
           type="button"
           id="btnCloseLegend"
-          class="text-slate-400 hover:text-slate-700 w-5 h-5 rounded-md hover:bg-slate-100 flex items-center justify-center text-xs font-bold transition"
+          class="text-slate-400 hover:text-slate-700 w-5 h-5 rounded-md hover:bg-slate-100 flex items-center justify-center text-xs font-bold transition cursor-pointer"
           title="Fechar legenda"
         >✕</button>
       </div>
-      <div id="legendItems" class="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs font-medium text-slate-700">
+      <div id="legendItems" class="grid grid-cols-2 gap-x-2 gap-y-1.5 text-xs font-medium text-slate-700">
         <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#2563eb] shrink-0"></i> &ge;82 Quase Perfeito</span>
         <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#16a34a] shrink-0"></i> 74–81,9 Muito Bom</span>
         <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#ca8a04] shrink-0"></i> 64–73,9 Bom</span>
@@ -317,11 +496,11 @@
       </div>
     </div>
 
-    <!-- Toggle Button -->
+    <!-- Toggle Button (Solid White) -->
     <button
       type="button"
       id="btnToggleLegend"
-      class="px-3 py-1.5 rounded-xl bg-white/95 backdrop-blur-md border border-slate-200/90 hover:bg-slate-50 text-slate-700 shadow-md text-xs font-semibold flex items-center gap-2 transition"
+      class="px-3 py-1.5 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-800 shadow-md text-xs font-semibold flex items-center gap-2 transition cursor-pointer"
       title="Mostrar / Ocultar legenda de cores do mapa"
     >
       <span class="inline-flex items-center -space-x-1 shrink-0">
@@ -339,64 +518,234 @@
   </div>
 
   <!-- =========================================================================
-       DESKTOP LEFT SIDEBAR (380px fixed with internal scroll)
+       DESKTOP TOP FLOATING CONTROLS (Google Maps Style Expandable Pills) - 100% Solid
+       Positioned at left-[404px] z-20 without overflow clipping.
+  ========================================================================== -->
+  <div
+    id="desktopTopControls"
+    class="hidden lg:flex fixed top-4 left-[404px] z-20 items-center pointer-events-none"
+  >
+    <div class="pointer-events-auto flex items-center gap-2">
+      <!-- 1. CAMADAS (Expandable Google Maps Pill) -->
+      <div class="relative" id="dropdownContainerCamadasDesktop">
+        <button
+          type="button"
+          id="btnDesktopCamadas"
+          class="gmap-pill"
+          title="Selecionar camada climática, relevo de serra e mapa base"
+        >
+          <svg class="w-4 h-4 text-[#1f5a6e]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
+          <span class="label-active-layer">Camadas: Nota ICCB</span>
+          <svg class="w-3.5 h-3.5 text-slate-400 gmap-chevron transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+        </button>
+
+        <!-- Flyout Camadas Desktop (Solid White) -->
+        <div
+          id="flyoutCamadasDesktop"
+          class="hidden absolute top-full left-0 mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-slate-300 p-3.5 z-50 gmap-flyout space-y-3"
+        >
+          <div class="text-[11px] font-bold uppercase tracking-wider text-slate-500 px-1">Camadas Climáticas</div>
+          <div class="grid grid-cols-2 gap-2">
+            <button type="button" data-layer="iccb" class="layer-tile p-2 rounded-xl border-2 border-[#1f5a6e] bg-[#1f5a6e]/10 flex items-center gap-2 text-left transition cursor-pointer">
+              <span class="w-8 h-8 rounded-lg bg-[#1f5a6e] text-white flex items-center justify-center shrink-0 text-xs font-bold">★</span>
+              <div>
+                <div class="text-xs font-bold text-slate-900">Nota ICCB</div>
+                <div class="text-[10px] text-slate-500">Geral (0–100)</div>
+              </div>
+            </button>
+            <button type="button" data-layer="pm25" class="layer-tile p-2 rounded-xl border border-slate-200 hover:border-slate-300 flex items-center gap-2 text-left transition cursor-pointer">
+              <span class="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 text-xs">🍃</span>
+              <div>
+                <div class="text-xs font-bold text-slate-900">PM2.5</div>
+                <div class="text-[10px] text-slate-500">Poluição do Ar</div>
+              </div>
+            </button>
+            <button type="button" data-layer="hi" class="layer-tile p-2 rounded-xl border border-slate-200 hover:border-slate-300 flex items-center gap-2 text-left transition cursor-pointer">
+              <span class="w-8 h-8 rounded-lg bg-amber-500 text-white flex items-center justify-center shrink-0 text-xs">🌡️</span>
+              <div>
+                <div class="text-xs font-bold text-slate-900">Heat Index</div>
+                <div class="text-[10px] text-slate-500">Calor Máximo</div>
+              </div>
+            </button>
+            <button type="button" data-layer="ur_min" class="layer-tile p-2 rounded-xl border border-slate-200 hover:border-slate-300 flex items-center gap-2 text-left transition cursor-pointer">
+              <span class="w-8 h-8 rounded-lg bg-blue-500 text-white flex items-center justify-center shrink-0 text-xs">💧</span>
+              <div>
+                <div class="text-xs font-bold text-slate-900">Umidade</div>
+                <div class="text-[10px] text-slate-500">Mín. Inverno</div>
+              </div>
+            </button>
+            <button type="button" data-layer="chuva" class="layer-tile p-2 rounded-xl border border-slate-200 hover:border-slate-300 flex items-center gap-2 text-left transition cursor-pointer">
+              <span class="w-8 h-8 rounded-lg bg-cyan-600 text-white flex items-center justify-center shrink-0 text-xs">🌧️</span>
+              <div>
+                <div class="text-xs font-bold text-slate-900">Chuva Anual</div>
+                <div class="text-[10px] text-slate-500">Acumulado (mm)</div>
+              </div>
+            </button>
+            <button type="button" data-layer="altitude" class="layer-tile p-2 rounded-xl border border-slate-200 hover:border-slate-300 flex items-center gap-2 text-left transition cursor-pointer">
+              <span class="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0 text-xs">⛰️</span>
+              <div>
+                <div class="text-xs font-bold text-slate-900">Altitude</div>
+                <div class="text-[10px] text-slate-500">Topografia DEM</div>
+              </div>
+            </button>
+          </div>
+
+          <!-- Sobreposição de Serra -->
+          <div class="border-t border-slate-100 pt-2.5">
+            <label class="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 cursor-pointer transition">
+              <div class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-sm bg-[#c85a32]/60 border border-[#c85a32]"></span>
+                <div>
+                  <div class="text-xs font-bold text-slate-800">Zona Climática de Serra</div>
+                  <div class="text-[10px] text-slate-500">Mantiqueira, Espinhaço e Serra Geral (&ge;800m)</div>
+                </div>
+              </div>
+              <input type="checkbox" class="chk-planalto-toggle w-4 h-4 rounded text-[#c85a32] focus:ring-[#c85a32] cursor-pointer" />
+            </label>
+          </div>
+
+          <!-- Estilo de Mapa Base -->
+          <div class="border-t border-slate-100 pt-2.5">
+            <div class="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5 px-1">Estilo do Mapa Base</div>
+            <div class="grid grid-cols-3 gap-1.5">
+              <button type="button" data-basemap="padrao" class="basemap-tile p-1.5 rounded-xl border-2 border-[#1f5a6e] bg-[#1f5a6e]/10 text-center transition cursor-pointer">
+                <div class="text-[11px] font-bold text-slate-800">🗺️ Padrão</div>
+              </button>
+              <button type="button" data-basemap="terreno" class="basemap-tile p-1.5 rounded-xl border border-slate-200 hover:border-slate-300 text-center transition cursor-pointer">
+                <div class="text-[11px] font-bold text-slate-800">⛰️ Relevo</div>
+              </button>
+              <button type="button" data-basemap="hibrido" class="basemap-tile p-1.5 rounded-xl border border-slate-200 hover:border-slate-300 text-center transition cursor-pointer">
+                <div class="text-[11px] font-bold text-slate-800">🛰️ Satélite</div>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. FILTROS & REGIÕES (Expandable Google Maps Pill) -->
+      <div class="relative" id="dropdownContainerFiltrosDesktop">
+        <button
+          type="button"
+          id="btnDesktopFiltros"
+          class="gmap-pill"
+          title="Filtrar por Região, Capitais, Top 20 ou Estado"
+        >
+          <svg class="w-4 h-4 text-[#2563eb]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+          <span class="label-active-filter">Todas as Cidades (260)</span>
+          <svg class="w-3.5 h-3.5 text-slate-400 gmap-chevron transition-transform duration-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+        </button>
+
+        <!-- Flyout Filtros Desktop (Solid White) -->
+        <div
+          id="flyoutFiltrosDesktop"
+          class="hidden absolute top-full left-0 mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-slate-300 p-3.5 z-50 gmap-flyout space-y-3"
+        >
+          <div>
+            <div class="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5 px-1">Destaques Rápidos</div>
+            <div class="flex flex-wrap gap-1.5">
+              <button type="button" data-region="TOP20" class="region-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer">Top 20</button>
+              <button type="button" data-region="CAPITAIS" class="region-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer">Capitais (27)</button>
+              <button type="button" data-region="ALL" class="region-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#2563eb] text-white cursor-pointer">Todas (260)</button>
+              <button type="button" data-region="ALTITUDE" class="region-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer">Serra (&ge;800m)</button>
+            </div>
+          </div>
+
+          <div class="border-t border-slate-100 pt-2.5">
+            <div class="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5 px-1">Regiões do Brasil</div>
+            <div class="flex flex-wrap gap-1.5">
+              <button type="button" data-region="Sudeste" class="region-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer">Sudeste</button>
+              <button type="button" data-region="Sul" class="region-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer">Sul</button>
+              <button type="button" data-region="Centro-Oeste" class="region-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer">C.-Oeste</button>
+              <button type="button" data-region="Nordeste" class="region-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer">Nordeste</button>
+              <button type="button" data-region="Norte" class="region-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer">Norte</button>
+            </div>
+          </div>
+
+          <div class="border-t border-slate-100 pt-2.5">
+            <div class="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5 px-1">Por Estado (UF)</div>
+            <select
+              class="state-filter-select w-full px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-50 text-slate-800 border border-slate-300 outline-none cursor-pointer focus:ring-2 focus:ring-[#2563eb]/30"
+            >
+              <option value="">Por Estado (UF)...</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. COMPARAR (Google Maps Pill) -->
+      <button
+        type="button"
+        id="btnOpenCompareDesktop"
+        class="gmap-pill hover:text-[#c85a32]"
+        title="Comparar duas cidades lado a lado"
+      >
+        <svg class="w-4 h-4 text-[#c85a32]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+        </svg>
+        <span>Comparar (A vs B)</span>
+      </button>
+
+      <!-- 4. NASA POWER (Google Maps Pill) -->
+      <button
+        type="button"
+        id="btnOpenNasaModalDesktop"
+        class="gmap-pill hover:text-[#1f5a6e]"
+        title="Consultar qualquer um dos 5.570 municípios via NASA POWER"
+      >
+        <svg class="w-4 h-4 text-[#1f5a6e]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+        </svg>
+        <span>Município (NASA)</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       DESKTOP LEFT SIDEBAR (380px fixed with internal scroll) - 100% Solid Design
   ========================================================================== -->
   <aside
     id="desktopLeftSidebar"
-    class="hidden lg:flex fixed top-4 bottom-4 left-4 w-[380px] z-20 bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-xl rounded-2xl flex-col overflow-hidden"
+    class="hidden lg:flex fixed top-4 bottom-4 left-4 w-[380px] z-20 bg-white border border-slate-300 shadow-xl rounded-2xl flex-col overflow-hidden"
   >
     <!-- Header -->
-    <div class="p-4 border-b border-slate-200/80 bg-gradient-to-br from-[#1f5a6e] to-[#133b4a] text-white">
+    <div class="p-4 border-b border-slate-300 bg-gradient-to-br from-[#1f5a6e] to-[#133b4a] text-white">
       <div class="flex items-center justify-between">
-        <span class="px-2 py-0.5 rounded-md bg-white/15 text-[10px] font-mono uppercase tracking-wider">INMET 1991–2020 + CAMS PM2.5</span>
+        <span class="px-2 py-0.5 rounded-md bg-white/20 text-[10px] font-mono uppercase tracking-wider">INMET 1991–2020 + CAMS PM2.5</span>
         <span id="calcLatencyBadge" class="text-[10px] font-mono text-emerald-300">ICCB v2.1 • 0.4ms</span>
       </div>
       <h1 class="font-display font-bold text-lg leading-snug mt-1.5">Conforto Climático do Brasil</h1>
       <p class="text-xs text-slate-200 mt-0.5">Avaliação calibrada de Temperatura, Heat Index, Umidade, Chuva e Poluição do Ar (PM2.5).</p>
     </div>
 
-    <!-- Search & Region Filter -->
-    <div class="p-3 border-b border-slate-200/80 bg-slate-50/70 space-y-2">
+    <!-- Search Input (Clean, Solid, NO duplicate filter row) -->
+    <div class="p-3 border-b border-slate-200 bg-slate-50">
       <div class="relative">
         <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
         <input
           id="desktopSearchInput"
           type="search"
-          placeholder="Buscar entre as 260 cidades (ex: Pirapora, Curitiba)..."
-          class="w-full pl-9 pr-8 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#1f5a6e] text-slate-800 placeholder:text-slate-400"
+          placeholder="Buscar entre as 260 cidades (ex: Diamantina, Curitiba)..."
+          class="w-full pl-9 pr-8 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-[#1f5a6e] text-slate-800 placeholder:text-slate-400 font-medium"
         />
         <button
           type="button"
           id="btnClearDesktopSearch"
-          class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 w-5 h-5 rounded-full hover:bg-slate-100 flex items-center justify-center text-xs font-bold transition"
+          class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 w-5 h-5 rounded-full hover:bg-slate-200 flex items-center justify-center text-xs font-bold transition cursor-pointer"
           title="Limpar busca"
         >✕</button>
-      </div>
-      <div class="flex items-center gap-1.5 overflow-x-auto scroller pb-0.5" id="regionFilterBar">
-        <select
-          id="stateFilterSelect"
-          class="state-filter-select px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 border border-slate-300/80 outline-none shrink-0 cursor-pointer transition focus:ring-2 focus:ring-[#2563eb]/30"
-          title="Filtrar cidades por Estado (UF)"
-        >
-          <option value="">Por Estado (UF)...</option>
-        </select>
-        <button type="button" data-region="TOP20" class="region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-[#2563eb] text-white shrink-0">Top 20</button>
-        <button type="button" data-region="CAPITAIS" class="region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 shrink-0">Capitais (27)</button>
-        <button type="button" data-region="ALL" class="region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 shrink-0">Todas (260)</button>
-        <button type="button" data-region="ALTITUDE" class="region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 shrink-0">Altitude &ge;800m</button>
-        <button type="button" data-region="Sudeste" class="region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 shrink-0">Sudeste</button>
-        <button type="button" data-region="Sul" class="region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 shrink-0">Sul</button>
-        <button type="button" data-region="Centro-Oeste" class="region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 shrink-0">C.-Oeste</button>
-        <button type="button" data-region="Nordeste" class="region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 shrink-0">Nordeste</button>
-        <button type="button" data-region="Norte" class="region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 shrink-0">Norte</button>
       </div>
     </div>
 
     <!-- Scrollable Area: Sliders Accordion + Ranking List -->
-    <div class="flex-1 overflow-y-auto scroller divide-y divide-slate-200/80">
+    <div class="flex-1 overflow-y-auto scroller divide-y divide-slate-200">
       <!-- Interactive Sliders ("Personalize seu Clima Ideal") -->
-      <details id="desktopSlidersAccordion" class="group bg-amber-50/40">
-        <summary class="cursor-pointer list-none px-4 py-2.5 flex items-center justify-between text-xs font-bold text-slate-800 hover:bg-amber-50/80 transition">
+      <details id="desktopSlidersAccordion" class="group bg-amber-50">
+        <summary class="cursor-pointer list-none px-4 py-2.5 flex items-center justify-between text-xs font-bold text-slate-800 hover:bg-amber-100 transition">
           <span class="flex items-center gap-1.5">
             <svg class="w-4 h-4 text-[#c85a32]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
             <span>Personalize seu Clima Ideal (Tempo Real)</span>
@@ -404,65 +753,75 @@
           <span class="text-[11px] font-mono text-[#c85a32] group-open:rotate-180 transition-transform">&#9662;</span>
         </summary>
 
-        <div id="slidersMountDesktop" class="px-4 pb-3.5 pt-1 space-y-3 border-t border-amber-200/60">
+        <div id="slidersMountDesktop" class="px-4 pb-3.5 pt-1 space-y-3 border-t border-amber-200 bg-amber-50/50">
           <!-- Sliders injected/synced via JS -->
         </div>
       </details>
 
       <!-- Ranking Header -->
-      <div class="px-4 py-2 bg-slate-100/80 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-500 sticky top-0 z-10 backdrop-blur-sm">
-        <div class="flex items-center gap-1.5 min-w-0">
-          <span id="rankingCountLabel" class="truncate">Ranking das Cidades (Top 20)</span>
+      <div class="px-4 py-2.5 bg-slate-100 border-b border-slate-200 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-600 sticky top-0 z-10">
+        <div class="flex items-center gap-2 min-w-0">
+          <span id="rankingCountLabel" class="truncate font-bold">Ranking das Cidades</span>
+          <button
+            type="button"
+            id="activeFilterBadge"
+            class="px-2 py-0.5 rounded-md bg-[#2563eb] hover:bg-blue-700 text-white text-[10px] font-bold normal-case cursor-pointer transition shrink-0 flex items-center gap-1"
+            title="Filtro ativo (clique para alterar no topo)"
+          >
+            <span id="activeFilterBadgeText">Todas (260)</span>
+            <span class="text-[9px] opacity-90">▾</span>
+          </button>
           <button
             type="button"
             id="btnResetSearchBadge"
-            class="hidden shrink-0 px-1.5 py-0.5 rounded-md bg-amber-100 text-[#c85a32] hover:bg-amber-200 text-[10px] font-bold normal-case transition"
+            class="hidden shrink-0 px-1.5 py-0.5 rounded-md bg-amber-200 text-[#c85a32] hover:bg-amber-300 text-[10px] font-bold normal-case transition cursor-pointer"
             title="Limpar busca de texto"
           >✕ Limpar</button>
         </div>
-        <span class="shrink-0">Nota ICCB</span>
+        <span class="shrink-0 text-slate-500">Nota ICCB</span>
       </div>
 
       <!-- Ranking List -->
-      <div id="desktopRankingList" class="divide-y divide-slate-100"></div>
+      <div id="desktopRankingList" class="divide-y divide-slate-100 bg-white"></div>
     </div>
   </aside>
 
   <!-- =========================================================================
-       DESKTOP RIGHT RETRACTABLE PANEL (450px)
+       DESKTOP RIGHT RETRACTABLE PANEL (430px) - 100% Solid Design
+       Overlay on top with z-30 without squishing top controls
   ========================================================================== -->
   <aside
     id="desktopRightPanel"
-    class="hidden lg:flex fixed top-[68px] bottom-4 right-4 w-[450px] z-20 bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-2xl rounded-2xl flex-col overflow-hidden transition-transform duration-300 translate-x-0"
+    class="hidden lg:flex fixed top-4 bottom-4 right-4 w-[430px] z-30 bg-white border border-slate-300 shadow-2xl rounded-2xl flex-col overflow-hidden transition-transform duration-300 translate-x-0"
   >
-    <!-- Station Header -->
-    <div class="p-4 border-b border-slate-200/80 flex items-start justify-between gap-3 bg-slate-50/80">
+    <!-- Station Header (Solid Slate) -->
+    <div class="p-4 border-b border-slate-200 flex items-start justify-between gap-3 bg-slate-50">
       <div>
         <div class="flex items-center gap-2">
           <span id="detailRankBadge" class="px-2 py-0.5 rounded-md bg-slate-900 text-white font-mono text-xs font-bold">#01</span>
           <span id="detailClassBadge" class="px-2.5 py-0.5 rounded-full text-xs font-bold text-white bg-[#2563eb]">Quase Perfeito</span>
-          <span id="detailCodeBadge" class="text-[11px] font-mono text-slate-400">INMET 83536</span>
+          <span id="detailCodeBadge" class="text-[11px] font-mono text-slate-500">INMET 83536</span>
         </div>
         <h2 id="detailCityTitle" class="font-display font-extrabold text-xl text-slate-900 mt-1">Diamantina - MG</h2>
-        <p id="detailSubMeta" class="text-xs text-slate-500 mt-0.5">Região Sudeste • Altitude: 1.296 m • Lat -18.25°, Lon -43.60°</p>
+        <p id="detailSubMeta" class="text-xs text-slate-600 mt-0.5">Região Sudeste • Altitude: 1.296 m • Lat -18.25°, Lon -43.60°</p>
       </div>
       <div class="flex flex-col items-end shrink-0">
         <div id="detailScoreBig" class="font-mono font-extrabold text-3xl text-[#2563eb] leading-none">93.9</div>
-        <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mt-1">ICCB Anual</span>
+        <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mt-1">ICCB Anual</span>
       </div>
     </div>
 
-    <!-- Scrollable Station Content -->
-    <div id="stationDetailBodyDesktop" class="flex-1 overflow-y-auto scroller p-4 space-y-4">
+    <!-- Scrollable Station Content (Solid White) -->
+    <div id="stationDetailBodyDesktop" class="flex-1 overflow-y-auto scroller p-4 space-y-4 bg-white">
       <!-- Populated dynamically via renderStationDetails() -->
     </div>
 
-    <!-- Footer Actions -->
-    <div class="p-3 border-t border-slate-200/80 bg-slate-50 flex items-center justify-between gap-2">
+    <!-- Footer Actions (Solid Slate) -->
+    <div class="p-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-2">
       <button
         type="button"
         id="btnCompareFromDetail"
-        class="flex-1 py-2 px-3 rounded-xl bg-[#1f5a6e] hover:bg-[#164454] text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition"
+        class="flex-1 py-2 px-3 rounded-xl bg-[#1f5a6e] hover:bg-[#164454] text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer"
       >
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
         <span>Comparar com outra cidade</span>
@@ -470,7 +829,7 @@
       <button
         type="button"
         id="btnCloseRightPanel"
-        class="py-2 px-3 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600 text-xs font-semibold transition"
+        class="py-2 px-3 rounded-xl border border-slate-300 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition cursor-pointer"
         title="Recolher painel"
       >
         Ocultar
@@ -478,14 +837,15 @@
     </div>
   </aside>
 
-  <!-- Button to reopen right panel when collapsed on Desktop (Positioned below top bar at top-[68px] right-4) -->
+  <!-- Button to reopen right panel when collapsed on Desktop (Positioned at top-4 right-4) -->
   <button
     type="button"
     id="btnReopenRightPanel"
-    class="hidden fixed top-[68px] right-4 z-20 px-4 py-2.5 rounded-xl bg-slate-900 text-white shadow-xl text-xs font-semibold items-center gap-2 hover:bg-slate-800 transition"
+    class="hidden fixed top-4 right-4 z-20 px-3.5 py-2 rounded-xl bg-slate-900 text-white shadow-xl text-xs font-semibold items-center gap-2 hover:bg-slate-800 transition pointer-events-auto"
+    title="Exibir detalhes da cidade selecionada"
   >
-    <svg class="w-4 h-4 text-[#c85a32]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-    <span>Abrir Detalhes da Estação</span>
+    <svg class="w-4 h-4 text-[#c85a32]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+    <span>Detalhes da cidade</span>
   </button>
 
   <!-- =========================================================================
@@ -532,23 +892,23 @@
   </section>
 
   <!-- =========================================================================
-       MODAL 1: MOBILE SLIDERS ("PERSONALIZE SEU CLIMA IDEAL")
+       MODAL 1: MOBILE SLIDERS ("PERSONALIZE SEU CLIMA IDEAL") - Solid Design
   ========================================================================== -->
-  <div id="mobileSlidersModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl max-w-md w-full max-h-[88vh] flex flex-col shadow-2xl overflow-hidden">
+  <div id="mobileSlidersModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full max-h-[88vh] flex flex-col shadow-2xl border border-slate-300 overflow-hidden">
       <div class="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
         <h3 class="font-display font-bold text-sm text-slate-900">Personalize seu Clima Ideal (ICCB)</h3>
-        <button type="button" id="btnCloseMobileSliders" class="px-2.5 py-1 rounded-lg bg-slate-200 text-slate-700 text-xs font-semibold">Fechar</button>
+        <button type="button" id="btnCloseMobileSliders" class="px-2.5 py-1 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-semibold cursor-pointer">Fechar</button>
       </div>
       <div id="slidersMountMobile" class="p-4 overflow-y-auto scroller space-y-3"></div>
     </div>
   </div>
 
   <!-- =========================================================================
-       MODAL 2: COMPARADOR CIDADE A vs. CIDADE B
+       MODAL 2: COMPARADOR CIDADE A vs. CIDADE B - Solid Design
   ========================================================================== -->
-  <div id="compareModal" class="hidden fixed inset-0 z-50 bg-slate-900/65 backdrop-blur-xs flex items-center justify-center p-3 lg:p-6">
-    <div class="bg-white rounded-3xl max-w-5xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
+  <div id="compareModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-3 lg:p-6">
+    <div class="bg-white rounded-3xl max-w-5xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-slate-300 overflow-hidden">
       <!-- Modal Header -->
       <div class="px-5 py-4 border-b border-slate-200 bg-slate-900 text-white flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -556,11 +916,11 @@
           <h3 class="font-display font-bold text-lg">Cidade A vs. Cidade B — Qualidade de Vida Climática</h3>
         </div>
         <div class="flex items-center gap-2">
-          <!-- Presets from Blueprint -->
-          <button type="button" data-preset="83377,83536" class="preset-compare-btn px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-medium">Brasília vs. Diamantina</button>
-          <button type="button" data-preset="83781,83842" class="preset-compare-btn px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-medium">São Paulo vs. Curitiba</button>
-          <button type="button" data-preset="83743,A610" class="preset-compare-btn px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-medium">Rio vs. Petrópolis</button>
-          <button type="button" id="btnCloseCompareModal" class="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-xs font-bold">Fechar ✕</button>
+          <!-- Presets from Blueprint (Solid buttons) -->
+          <button type="button" data-preset="83377,83536" class="preset-compare-btn px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium cursor-pointer">Brasília vs. Diamantina</button>
+          <button type="button" data-preset="83781,83842" class="preset-compare-btn px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium cursor-pointer">São Paulo vs. Curitiba</button>
+          <button type="button" data-preset="83743,A610" class="preset-compare-btn px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium cursor-pointer">Rio vs. Petrópolis</button>
+          <button type="button" id="btnCloseCompareModal" class="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-xs font-bold cursor-pointer">Fechar ✕</button>
         </div>
       </div>
 
@@ -650,8 +1010,8 @@
   <!-- =========================================================================
        MODAL 3: BUSCADOR NASA POWER API (QUALQUER MUNICÍPIO DO BRASIL)
   ========================================================================== -->
-  <div id="nasaModal" class="hidden fixed inset-0 z-50 bg-slate-900/65 backdrop-blur-xs flex items-center justify-center p-4">
-    <div class="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden">
+  <div id="nasaModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-300 overflow-hidden">
       <div class="px-5 py-4 bg-[#1f5a6e] text-white flex items-center justify-between">
         <div>
           <span class="text-[10px] font-mono uppercase tracking-wider text-sky-200">Cobertura 100% dos 5.570 Municípios</span>
@@ -999,91 +1359,62 @@
     }
 
     function atualizarLegendaMapa(layer) {
-      const titleEl = document.getElementById("legendTitle");
-      const itemsEl = document.getElementById("legendItems");
-      const previewEl = document.getElementById("legendBtnPreview");
-      if (!titleEl || !itemsEl) return;
+      let title = "Faixas do Índice ICCB (0–100)";
+      let items = `
+        <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#2563eb] shrink-0"></i> &ge;82 Quase Perfeito</span>
+        <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#16a34a] shrink-0"></i> 74–81,9 Muito Bom</span>
+        <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#ca8a04] shrink-0"></i> 64–73,9 Bom</span>
+        <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#ea580c] shrink-0"></i> 52–63,9 Regular</span>
+        <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#dc2626] shrink-0"></i> 35–51,9 Severo</span>
+        <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#991b1b] shrink-0"></i> &lt;35 Crítico</span>
+      `;
 
       if (layer === "pm25") {
-        titleEl.textContent = "Poluição do Ar — PM2.5 (µg/m³)";
-        itemsEl.innerHTML = `
+        title = "Poluição do Ar — PM2.5 (µg/m³)";
+        items = `
           <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#059669] shrink-0"></i> &lt;7,5 Excelente</span>
           <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#1f5a6e] shrink-0"></i> 7,5–9,9 Bom</span>
           <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#d97706] shrink-0"></i> 10–13,4 Moderado</span>
           <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#c85a32] shrink-0"></i> 13,5–17,9 Poluído</span>
           <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#7f1d1d] shrink-0"></i> &ge;18 Crítico</span>
         `;
-        if (previewEl) {
-          previewEl.innerHTML = `
-            <span class="w-2.5 h-2.5 rounded-full bg-[#059669] border border-white"></span>
-            <span class="w-2.5 h-2.5 rounded-full bg-[#1f5a6e] border border-white"></span>
-            <span class="w-2.5 h-2.5 rounded-full bg-[#d97706] border border-white"></span>
-            <span class="w-2.5 h-2.5 rounded-full bg-[#c85a32] border border-white"></span>
-            <span class="w-2.5 h-2.5 rounded-full bg-[#7f1d1d] border border-white"></span>
-          `;
-        }
       } else if (layer === "hi") {
-        titleEl.textContent = "Sensação Térmica — Heat Index (°C)";
-        itemsEl.innerHTML = `
+        title = "Sensação Térmica — Heat Index (°C)";
+        items = `
           <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#1f5a6e] shrink-0"></i> &lt;25°C Amena</span>
           <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#678c99] shrink-0"></i> 25–27,9°C Confortável</span>
           <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#d97706] shrink-0"></i> 28–31,9°C Quente</span>
           <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#c85a32] shrink-0"></i> 32–35,9°C Abafado</span>
           <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#991b1b] shrink-0"></i> &ge;36°C Extremo</span>
         `;
-        if (previewEl) {
-          previewEl.innerHTML = `
-            <span class="w-2.5 h-2.5 rounded-full bg-[#1f5a6e] border border-white"></span>
-            <span class="w-2.5 h-2.5 rounded-full bg-[#678c99] border border-white"></span>
-            <span class="w-2.5 h-2.5 rounded-full bg-[#d97706] border border-white"></span>
-            <span class="w-2.5 h-2.5 rounded-full bg-[#c85a32] border border-white"></span>
-            <span class="w-2.5 h-2.5 rounded-full bg-[#991b1b] border border-white"></span>
-          `;
-        }
       } else if (layer === "ur_min") {
-        titleEl.textContent = "Umidade Mínima Mensal (%)";
-        itemsEl.innerHTML = `
+        title = "Umidade Mínima Mensal (%)";
+        items = `
           <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#b91c1c] shrink-0"></i> &lt;48% Secura Severa</span>
           <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#d97706] shrink-0"></i> 48–54% Seco</span>
           <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#1f5a6e] shrink-0"></i> 55–76% Faixa Ideal</span>
           <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#678c99] shrink-0"></i> &gt;76% Muito Úmido</span>
         `;
       } else if (layer === "chuva") {
-        titleEl.textContent = "Precipitação Anual (mm/ano)";
-        itemsEl.innerHTML = `
+        title = "Precipitação Anual (mm/ano)";
+        items = `
           <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#c85a32] shrink-0"></i> &lt;800mm Seco</span>
           <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#678c99] shrink-0"></i> 800–1.199mm Moderado</span>
           <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#1f5a6e] shrink-0"></i> 1.200–2.200mm Equilibrado</span>
           <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#1e3a8a] shrink-0"></i> &gt;2.200mm Chuvoso</span>
         `;
       } else if (layer === "altitude") {
-        titleEl.textContent = "Altitude Topográfica (metros)";
-        itemsEl.innerHTML = `
+        title = "Altitude Topográfica (metros)";
+        items = `
           <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#c85a32] shrink-0"></i> &ge;1.000m Serra Alta</span>
           <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#1f5a6e] shrink-0"></i> 750–999m Planalto</span>
           <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#678c99] shrink-0"></i> 400–749m Subplanalto</span>
           <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#b8c8d0] shrink-0"></i> &lt;400m Litoral/Baixada</span>
         `;
-      } else {
-        titleEl.textContent = "Faixas do Índice ICCB (0–100)";
-        itemsEl.innerHTML = `
-          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#2563eb] shrink-0"></i> &ge;82 Quase Perfeito</span>
-          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#16a34a] shrink-0"></i> 74–81,9 Muito Bom</span>
-          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#ca8a04] shrink-0"></i> 64–73,9 Bom</span>
-          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#ea580c] shrink-0"></i> 52–63,9 Regular</span>
-          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#dc2626] shrink-0"></i> 35–51,9 Severo</span>
-          <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded-full inline-block bg-[#991b1b] shrink-0"></i> &lt;35 Crítico</span>
-        `;
-        if (previewEl) {
-          previewEl.innerHTML = `
-            <span class="w-2.5 h-2.5 rounded-full bg-[#2563eb] border border-white"></span>
-            <span class="w-2.5 h-2.5 rounded-full bg-[#16a34a] border border-white"></span>
-            <span class="w-2.5 h-2.5 rounded-full bg-[#ca8a04] border border-white"></span>
-            <span class="w-2.5 h-2.5 rounded-full bg-[#ea580c] border border-white"></span>
-            <span class="w-2.5 h-2.5 rounded-full bg-[#dc2626] border border-white"></span>
-          `;
-        }
       }
+
+      document.querySelectorAll(".legend-title, #legendTitle").forEach((el) => { el.textContent = title; });
+      document.querySelectorAll(".legend-items, #legendItems").forEach((el) => { el.innerHTML = items; });
     }
 
     function corPorCamada(feat, layer) {
@@ -1319,6 +1650,13 @@
         }
       );
 
+      // Expõe camadas base para o seletor estilo Google Maps
+      window.baseTileLayers = {
+        padrao: googlePadrao,
+        terreno: googleTerreno,
+        hibrido: googleHibrido
+      };
+
       // Define o Google Maps Padrão (visual verde/azul clássico) como padrão ao abrir
       googlePadrao.addTo(mapInstance);
 
@@ -1485,7 +1823,7 @@
           </div>
 
           <div class="pt-1 flex justify-end">
-            <button type="button" class="btn-reset-params px-2.5 py-1 rounded-lg bg-slate-200/80 hover:bg-slate-300 text-slate-700 font-semibold text-[11px] transition">
+            <button type="button" class="btn-reset-params px-2.5 py-1 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold text-[11px] transition">
               Restaurar Modelo Calibrado ICCB v2.6
             </button>
           </div>
@@ -2058,9 +2396,11 @@
       // Garantir que o painel direito esteja visível no Desktop
       const rightPanel = document.getElementById("desktopRightPanel");
       const reopenBtn = document.getElementById("btnReopenRightPanel");
-      rightPanel.classList.remove("translate-x-[480px]");
-      reopenBtn.classList.add("hidden");
-      reopenBtn.classList.remove("lg:flex");
+      if (rightPanel) rightPanel.classList.remove("translate-x-[480px]");
+      if (reopenBtn) {
+        reopenBtn.classList.add("hidden");
+        reopenBtn.classList.remove("lg:flex");
+      }
 
       // Renderizar corpo de detalhes Desktop + Mobile
       document.getElementById("stationDetailBodyDesktop").innerHTML = gerarHTMLDetalhesEstacao(feat, "desktop");
@@ -2269,16 +2609,15 @@
     };
 
     function popularSelectEstados() {
-      const selectEl = document.getElementById("stateFilterSelect");
-      if (!selectEl) return;
+      const selectEls = document.querySelectorAll(".state-filter-select");
+      if (selectEls.length === 0) return;
       const ufsContagem = {};
       for (const feat of allFeatures) {
         const uf = (feat.properties.uf || "").toUpperCase();
         if (uf) ufsContagem[uf] = (ufsContagem[uf] || 0) + 1;
       }
       const ufsOrdenadas = Object.keys(ufsContagem).sort();
-      const valorAtual = selectEl.value;
-      selectEl.innerHTML = `
+      const optionsHtml = `
         <option value="">Por Estado (UF)...</option>
         ${ufsOrdenadas
           .map((uf) => {
@@ -2287,7 +2626,11 @@
           })
           .join("")}
       `;
-      if (valorAtual) selectEl.value = valorAtual;
+      selectEls.forEach((sel) => {
+        const valorAtual = sel.value;
+        sel.innerHTML = optionsHtml;
+        if (valorAtual) sel.value = valorAtual;
+      });
     }
 
     function renderizarComparacao() {
@@ -2696,13 +3039,12 @@
           const isAll = b.getAttribute("data-region") === "ALL";
           b.className = isAll
             ? "region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-[#2563eb] text-white shrink-0"
-            : "region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 shrink-0";
+            : "region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 shrink-0";
         });
-        const stateSelect = document.getElementById("stateFilterSelect");
-        if (stateSelect) {
-          stateSelect.value = "";
-          stateSelect.className = "state-filter-select px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 border border-slate-300/80 outline-none shrink-0 cursor-pointer transition";
-        }
+        document.querySelectorAll(".state-filter-select").forEach((s) => {
+          s.value = "";
+          s.className = "state-filter-select px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 text-slate-800 hover:bg-slate-200 border border-slate-300 outline-none shrink-0 cursor-pointer transition";
+        });
 
         popularSelectsComparador();
         popularSelectEstados();
@@ -2780,9 +3122,76 @@
       document.getElementById("btnClearMobileSearch")?.addEventListener("click", limparBuscaTexto);
       document.getElementById("btnResetSearchBadge")?.addEventListener("click", limparBuscaTexto);
 
-      // Filtro de Região / Top 20 / Capitais
+      // =========================================================================
+      // CONTROLES EXPANSÍVEIS ESTILO GOOGLE MAPS (Camadas, Filtros, Legenda)
+      // =========================================================================
+      const LABELS_CAMADA = {
+        iccb: "Nota ICCB",
+        pm25: "PM2.5",
+        hi: "Heat Index",
+        ur_min: "Umidade",
+        chuva: "Chuva",
+        altitude: "Altitude"
+      };
+
+      const closeAllFlyouts = () => {
+        document.querySelectorAll(".gmap-flyout").forEach((flyout) => {
+          flyout.classList.add("hidden");
+        });
+        document.querySelectorAll(".gmap-chevron").forEach((ch) => {
+          ch.classList.remove("rotate-180");
+        });
+      };
+
+      const atualizarLabelFiltroAtivo = () => {
+        let texto = "Todas as Cidades (260)";
+        let shortText = "Todas (260)";
+        if (currentRegionFilter === "TOP20") {
+          texto = "Top 20 Cidades";
+          shortText = "Top 20";
+        } else if (currentRegionFilter === "CAPITAIS") {
+          texto = "Capitais (27)";
+          shortText = "Capitais (27)";
+        } else if (currentRegionFilter === "ALL") {
+          texto = "Todas as Cidades (260)";
+          shortText = "Todas (260)";
+        } else if (currentRegionFilter === "ALTITUDE") {
+          texto = "Cidades de Serra (≥800m)";
+          shortText = "Serra (≥800m)";
+        } else if (currentRegionFilter.startsWith("UF_")) {
+          const uf = currentRegionFilter.replace("UF_", "");
+          const nome = NOMES_ESTADOS_BRASIL[uf] || uf;
+          texto = `${uf} (${nome})`;
+          shortText = `UF: ${uf}`;
+        } else {
+          texto = `Região ${currentRegionFilter}`;
+          shortText = currentRegionFilter;
+        }
+        document.querySelectorAll(".label-active-filter").forEach((el) => {
+          el.textContent = texto;
+        });
+        const badgeText = document.getElementById("activeFilterBadgeText");
+        if (badgeText) {
+          badgeText.textContent = shortText;
+        }
+      };
+
+      // Função auxiliar para redefinir o estilo dos selects de estado
+      const setSelectsEstadoVisual = (uf = "") => {
+        document.querySelectorAll(".state-filter-select").forEach((s) => {
+          s.value = uf;
+          if (uf) {
+            s.className = "state-filter-select px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-[#2563eb] text-white border border-[#2563eb] outline-none shrink-0 cursor-pointer transition shadow-xs";
+          } else {
+            s.className = "state-filter-select px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 text-slate-800 hover:bg-slate-200 border border-slate-300 outline-none shrink-0 cursor-pointer transition";
+          }
+        });
+      };
+
+      // Filtro de Região / Top 20 / Capitais (Desktop & Mobile)
       document.querySelectorAll(".region-pill").forEach((btn) => {
         btn.addEventListener("click", () => {
+          const region = btn.getAttribute("data-region");
           // Quando o usuário clica num filtro (ex: Capitais, Top 20), limpa a busca de texto anterior
           // para desmarcar a retenção da cidade pesquisada anteriormente
           if (searchQuery) {
@@ -2797,17 +3206,17 @@
           }
 
           // Resetar select de estado
-          const stateSelect = document.getElementById("stateFilterSelect");
-          if (stateSelect) {
-            stateSelect.value = "";
-            stateSelect.className = "state-filter-select px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 border border-slate-300/80 outline-none shrink-0 cursor-pointer transition";
-          }
+          setSelectsEstadoVisual("");
 
-          currentRegionFilter = btn.getAttribute("data-region");
+          currentRegionFilter = region;
           document.querySelectorAll(".region-pill").forEach((b) => {
-            b.className = "region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 shrink-0";
+            const isActive = b.getAttribute("data-region") === region;
+            b.className = isActive
+              ? "region-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#2563eb] text-white shrink-0"
+              : "region-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 shrink-0";
           });
-          btn.className = "region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-[#2563eb] text-white shrink-0";
+          atualizarLabelFiltroAtivo();
+          closeAllFlyouts();
           renderizarRanking();
           atualizarMarcadoresMapa();
 
@@ -2828,9 +3237,8 @@
         });
       });
 
-      // Filtro de Estado (UF)
-      const stateSelect = document.getElementById("stateFilterSelect");
-      if (stateSelect) {
+      // Filtro de Estado (UF) (Desktop & Mobile)
+      document.querySelectorAll(".state-filter-select").forEach((stateSelect) => {
         stateSelect.addEventListener("change", (e) => {
           const uf = e.target.value.trim().toUpperCase();
           if (searchQuery) {
@@ -2846,21 +3254,23 @@
 
           if (uf) {
             currentRegionFilter = "UF_" + uf;
-            stateSelect.className = "state-filter-select px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-[#2563eb] text-white border border-[#2563eb] outline-none shrink-0 cursor-pointer transition shadow-xs";
+            setSelectsEstadoVisual(uf);
             document.querySelectorAll(".region-pill").forEach((b) => {
-              b.className = "region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 shrink-0";
+              b.className = "region-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 shrink-0";
             });
           } else {
             currentRegionFilter = "ALL";
-            stateSelect.className = "state-filter-select px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 border border-slate-300/80 outline-none shrink-0 cursor-pointer transition";
+            setSelectsEstadoVisual("");
             document.querySelectorAll(".region-pill").forEach((b) => {
               const isAll = b.getAttribute("data-region") === "ALL";
               b.className = isAll
-                ? "region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-[#2563eb] text-white shrink-0"
-                : "region-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200/70 text-slate-700 hover:bg-slate-200 shrink-0";
+                ? "region-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#2563eb] text-white shrink-0"
+                : "region-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 shrink-0";
             });
           }
 
+          atualizarLabelFiltroAtivo();
+          closeAllFlyouts();
           renderizarRanking();
           atualizarMarcadoresMapa();
 
@@ -2874,80 +3284,152 @@
             }
           }
         });
-      }
+      });
 
-      // Troca de Camada Desktop & Mobile
-      const setLayer = (layer) => {
-        currentMapLayer = layer;
-        document.querySelectorAll(".layer-btn").forEach((b) => {
-          const active = b.getAttribute("data-layer") === layer;
-          b.className = active
-            ? "layer-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1f5a6e] text-white transition"
-            : "layer-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition";
-        });
-        document.getElementById("mobileLayerSelect").value = layer;
-        atualizarLegendaMapa(layer);
-        atualizarMarcadoresMapa();
+      // =========================================================================
+      // CONTROLES EXPANSÍVEIS ESTILO GOOGLE MAPS (Camadas, Filtros, Legenda)
+      // =========================================================================
+      const toggleFlyout = (flyoutId, btnId) => {
+        const flyout = document.getElementById(flyoutId);
+        if (!flyout) return;
+        const willOpen = flyout.classList.contains("hidden");
+        closeAllFlyouts();
+        if (willOpen) {
+          flyout.classList.remove("hidden");
+          const btn = document.getElementById(btnId);
+          if (btn) btn.classList.add("is-active");
+          const chevron = btn?.querySelector(".gmap-chevron");
+          if (chevron) chevron.classList.add("rotate-180");
+        }
       };
 
-      document.querySelectorAll(".layer-btn").forEach((btn) => {
-        btn.addEventListener("click", () => setLayer(btn.getAttribute("data-layer")));
+      // Toggles Desktop & Mobile
+      document.getElementById("btnDesktopCamadas")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleFlyout("flyoutCamadasDesktop", "btnDesktopCamadas");
       });
-      document.getElementById("mobileLayerSelect").addEventListener("change", (e) => setLayer(e.target.value));
+      document.getElementById("btnMobileCamadas")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleFlyout("flyoutCamadasMobile", "btnMobileCamadas");
+      });
 
-      // Controle do Botão e Popover da Legenda de Cores do Mapa
-      const legendCard = document.getElementById("legendCard");
+      document.getElementById("btnDesktopFiltros")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleFlyout("flyoutFiltrosDesktop", "btnDesktopFiltros");
+      });
+      document.getElementById("activeFilterBadge")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleFlyout("flyoutFiltrosDesktop", "btnDesktopFiltros");
+      });
+      document.getElementById("btnMobileFiltros")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleFlyout("flyoutFiltrosMobile", "btnMobileFiltros");
+      });
+
+      // Mobile Flyout Close Buttons
+      document.querySelectorAll(".btn-close-mobile-flyout").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          closeAllFlyouts();
+        });
+      });
+
+      // Floating Legend Toggle (Desktop & Mobile)
       const btnToggleLegend = document.getElementById("btnToggleLegend");
+      const legendCard = document.getElementById("legendCard");
       const btnCloseLegend = document.getElementById("btnCloseLegend");
       const legendChevron = document.getElementById("legendChevronIcon");
 
-      const toggleLegend = () => {
+      const toggleLegendCard = (forceState) => {
         if (!legendCard) return;
-        const isHidden = legendCard.classList.contains("hidden");
-        if (isHidden) {
-          legendCard.classList.remove("hidden");
-          if (legendChevron) legendChevron.classList.add("rotate-180");
-        } else {
-          legendCard.classList.add("hidden");
-          if (legendChevron) legendChevron.classList.remove("rotate-180");
+        const willOpen = typeof forceState === "boolean" ? forceState : legendCard.classList.contains("hidden");
+        legendCard.classList.toggle("hidden", !willOpen);
+        if (legendChevron) {
+          legendChevron.classList.toggle("rotate-180", willOpen);
         }
       };
 
-      if (btnToggleLegend) btnToggleLegend.addEventListener("click", (e) => {
+      btnToggleLegend?.addEventListener("click", (e) => {
         e.stopPropagation();
-        toggleLegend();
+        toggleLegendCard();
+      });
+      btnCloseLegend?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleLegendCard(false);
       });
 
-      if (btnCloseLegend) btnCloseLegend.addEventListener("click", (e) => {
-        e.stopPropagation();
-        legendCard?.classList.add("hidden");
-        if (legendChevron) legendChevron.classList.remove("rotate-180");
-      });
-
+      // Fechar flyouts e legenda ao clicar fora
       document.addEventListener("click", (e) => {
+        if (!e.target.closest(".gmap-pill") && !e.target.closest(".gmap-flyout")) {
+          closeAllFlyouts();
+        }
         if (!e.target.closest("#legendContainer")) {
-          legendCard?.classList.add("hidden");
-          if (legendChevron) legendChevron.classList.remove("rotate-180");
+          toggleLegendCard(false);
         }
       });
 
-      // Polígono Zona Climática de Serra / Planalto (desativado por padrão)
-      document.getElementById("btnTogglePlanaltoPolygon").addEventListener("click", () => {
-        showPlanaltoPolygon = !showPlanaltoPolygon;
-        const dotEl = document.getElementById("planaltoBtnDot");
-        const labelEl = document.getElementById("planaltoBtnLabel");
-        const btnEl = document.getElementById("btnTogglePlanaltoPolygon");
-        if (showPlanaltoPolygon) {
-          planaltoPolygonLayer.addTo(mapInstance);
-          if (dotEl) dotEl.className = "w-2.5 h-2.5 rounded-sm bg-[#c85a32]/50 border border-[#c85a32] inline-block transition";
-          if (labelEl) labelEl.textContent = "Zona Climática de Serra (Ativa)";
-          if (btnEl) btnEl.classList.add("border-[#c85a32]", "text-[#c85a32]");
-        } else {
-          mapInstance.removeLayer(planaltoPolygonLayer);
-          if (dotEl) dotEl.className = "w-2.5 h-2.5 rounded-sm bg-slate-200 border border-slate-400 inline-block transition";
-          if (labelEl) labelEl.textContent = "Zona Climática de Serra (Exibir)";
-          if (btnEl) btnEl.classList.remove("border-[#c85a32]", "text-[#c85a32]");
+      // Troca de Camada Climática
+      const setLayer = (layer) => {
+        currentMapLayer = layer;
+        const nomeLayer = LABELS_CAMADA[layer] || "Nota ICCB";
+        document.querySelectorAll(".label-active-layer").forEach((el) => {
+          el.textContent = `Camadas: ${nomeLayer}`;
+        });
+
+        document.querySelectorAll(".layer-tile").forEach((tile) => {
+          const active = tile.getAttribute("data-layer") === layer;
+          tile.classList.toggle("border-2", active);
+          tile.classList.toggle("border-[#1f5a6e]", active);
+          tile.classList.toggle("bg-[#1f5a6e]/10", active);
+          tile.classList.toggle("border-slate-200", !active);
+        });
+
+        atualizarLegendaMapa(layer);
+        atualizarMarcadoresMapa();
+        closeAllFlyouts();
+      };
+
+      document.querySelectorAll(".layer-tile").forEach((btn) => {
+        btn.addEventListener("click", () => setLayer(btn.getAttribute("data-layer")));
+      });
+
+      // Troca de Mapa Base (Google Maps Padrão, Relevo, Satélite)
+      const setBaseMap = (type) => {
+        if (!mapInstance || !window.baseTileLayers) return;
+        const layers = window.baseTileLayers;
+        Object.values(layers).forEach((l) => {
+          if (l && mapInstance.hasLayer(l)) mapInstance.removeLayer(l);
+        });
+        if (layers[type]) {
+          layers[type].addTo(mapInstance);
         }
+        document.querySelectorAll(".basemap-tile").forEach((tile) => {
+          const active = tile.getAttribute("data-basemap") === type;
+          tile.className = active
+            ? "basemap-tile p-1.5 rounded-xl border-2 border-[#1f5a6e] bg-[#1f5a6e]/10 text-center transition cursor-pointer"
+            : "basemap-tile p-1.5 rounded-xl border border-slate-200 hover:border-slate-300 text-center transition cursor-pointer";
+        });
+      };
+
+      document.querySelectorAll(".basemap-tile").forEach((btn) => {
+        btn.addEventListener("click", () => setBaseMap(btn.getAttribute("data-basemap")));
+      });
+
+      // Sobreposição de Serra
+      const setPlanaltoState = (ativo) => {
+        showPlanaltoPolygon = ativo;
+        if (showPlanaltoPolygon) {
+          if (mapInstance && planaltoPolygonLayer) planaltoPolygonLayer.addTo(mapInstance);
+        } else {
+          if (mapInstance && planaltoPolygonLayer) mapInstance.removeLayer(planaltoPolygonLayer);
+        }
+        document.querySelectorAll(".chk-planalto-toggle").forEach((chk) => {
+          chk.checked = showPlanaltoPolygon;
+        });
+      };
+
+      document.querySelectorAll(".chk-planalto-toggle").forEach((chk) => {
+        chk.addEventListener("change", (e) => setPlanaltoState(e.target.checked));
       });
 
       // Ocultar / Reabrir Painel Direito Desktop
